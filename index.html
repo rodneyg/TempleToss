@@ -261,6 +261,16 @@
         #tossButton {
             background: linear-gradient(to bottom right, #FF9800, #E65100);
             margin-left: auto;
+            transition: all 0.3s ease;
+        }
+
+        #tossButton.ready {
+            animation: pulse-ready 2s infinite;
+        }
+
+        @keyframes pulse-ready {
+            0%, 100% { box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); }
+            50% { box-shadow: 0 4px 15px rgba(255, 152, 0, 0.6); }
         }
 
         .keyHint {
@@ -585,7 +595,7 @@
             </div>
             <div id="tossButton" class="controlBtn">
                 TOSS
-                <div class="keyHint">Swipe ↑ / T</div>
+                <div class="keyHint">Tap / Swipe ↑ / T</div>
             </div>
         </div>
 
@@ -610,14 +620,15 @@
             </div>
 
             <div class="keyboard-hint">
-                <span>Toss:</span>
-                <span class="key">Swipe Up</span>
+                <span>Toss Projectiles:</span>
+                <span class="key">Swipe Up ↑</span>
                 <span>or</span>
-                <span class="key">T</span>
+                <span class="key">Tap TOSS</span>
                 <span>or</span>
-                <span class="key">Click</span>
+                <span class="key">T Key</span>
             </div>
 
+            <p><strong>Mobile:</strong> Tap anywhere to jump, swipe up to toss projectiles at targets!</p>
             <p>Avoid obstacles by jumping and hit targets for bonus points!</p>
             <button id="startButton" class="menu-button">START GAME</button>
         </div>
@@ -649,7 +660,12 @@
         const drag = 0.1;
         const groundHeight = 120;
         const playerHeight = 60;
-        const initialY = window.innerHeight - groundHeight - playerHeight;
+        // Ensure consistent positioning across devices, accounting for mobile viewport issues
+        const getInitialPlayerY = () => {
+            const viewportHeight = window.innerHeight;
+            return viewportHeight - groundHeight - playerHeight;
+        };
+        const initialY = getInitialPlayerY();
         let playerY = initialY;
         let playerX = window.innerWidth / 2;
         let playerVx = 0; // Horizontal velocity for air control
@@ -724,6 +740,17 @@
         // Initialize player position
         player.style.top = initialY + 'px';
         player.style.left = playerX + 'px';
+
+        // Handle viewport changes (mobile orientation, browser chrome changes)
+        window.addEventListener('resize', () => {
+            if (!gameStarted || gameOver) {
+                const newInitialY = getInitialPlayerY();
+                if (!playerJumping) {
+                    playerY = newInitialY;
+                    player.style.top = playerY + 'px';
+                }
+            }
+        });
 
         // Music and SFX toggle functionality
         musicToggle.innerHTML = isMusicOn ? '<i class="fas fa-volume-up"></i>' : '<i class="fas fa-volume-mute"></i>';
@@ -810,7 +837,11 @@
                     vy: -19 // ~361px toss height
                 });
                 canToss = false;
-                setTimeout(() => { canToss = true; }, 500);
+                tossButton.classList.remove('ready');
+                setTimeout(() => { 
+                    canToss = true; 
+                    tossButton.classList.add('ready');
+                }, 500);
                 playSfx(tossSound);
                 hapticFeedback('medium'); // Add haptic feedback for toss
             }
@@ -894,10 +925,11 @@
             gameOver = false;
             score = 0;
             playerJumping = false;
-            playerY = initialY;
+            const resetY = getInitialPlayerY();
+            playerY = resetY;
             playerX = window.innerWidth / 2;
             playerVx = 0;
-            player.style.top = initialY + 'px';
+            player.style.top = resetY + 'px';
             player.style.left = playerX + 'px';
             obstacles.forEach(ob => ob.element.remove());
             targets.forEach(t => t.element.remove());
@@ -913,6 +945,7 @@
             lastTargetTime = 0;
             scoreDisplay.textContent = 'Score: 0';
             canToss = true;
+            tossButton.classList.remove('ready'); // Reset toss button state
             firstPowerUpSpawned = false;
             powerUpSpawnTimer = 0;
             superJumpActive = false;
@@ -1025,8 +1058,9 @@
                 playerX += playerVx;
                 playerX = Math.max(20, Math.min(window.innerWidth - 20, playerX)); // Keep player within bounds
 
-                if (nextY >= initialY) {
-                    playerY = initialY;
+                const currentGroundY = getInitialPlayerY();
+                if (nextY >= currentGroundY) {
+                    playerY = currentGroundY;
                     playerJumping = false;
                     jumpVelocity = 0;
                     jumpHoldTime = 0;
@@ -1233,8 +1267,8 @@
             const deltaY = touchEndY - touchStartY;
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-            // Swipe up to toss (minimum distance and upward direction)
-            if (distance > 30 && deltaY < -20 && touchDuration < 500) {
+            // Swipe up to toss (more lenient detection for better mobile experience)
+            if (distance > 20 && deltaY < -15 && touchDuration < 800) {
                 toss();
             }
         });
@@ -1297,6 +1331,7 @@
             instructions.style.display = 'none';
             resetGame();
             gameStarted = true;
+            tossButton.classList.add('ready'); // Enable toss button visual feedback
             lastTime = performance.now();
             animationFrame = requestAnimationFrame(gameLoop);
         });
@@ -1305,6 +1340,7 @@
         restartButton.addEventListener('click', () => {
             resetGame();
             gameStarted = true;
+            tossButton.classList.add('ready'); // Enable toss button visual feedback
             gameOverScreen.style.display = 'none';
             lastTime = performance.now();
             animationFrame = requestAnimationFrame(gameLoop);
