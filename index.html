@@ -84,6 +84,7 @@
             height: 60px;
             background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 60'%3E%3Crect x='10' y='0' width='20' height='20' rx='10' fill='%23FFD700'/%3E%3Crect x='5' y='18' width='30' height='30' rx='3' fill='%23FF5722'/%3E%3Crect x='10' y='48' width='8' height='12' fill='%23795548'/%3E%3Crect x='22' y='48' width='8' height='12' fill='%23795548'/%3E%3Ccircle cx='15' cy='10' r='3' fill='%23000'/%3E%3Ccircle cx='25' cy='10' r='3' fill='%23000'/%3E%3C/svg%3E") no-repeat;
             left: 50%;
+            bottom: 120px; /* Align with obstacles when on ground */
             transform: translateX(-50%);
             z-index: 10;
             transition: transform 0.05s ease-out;
@@ -675,8 +676,7 @@
         const playerHeight = 60;
         // Ensure consistent positioning across devices, accounting for mobile viewport issues
         const getInitialPlayerY = () => {
-            const viewportHeight = window.innerHeight;
-            return viewportHeight - groundHeight - playerHeight;
+            return 120; // Bottom position - align with obstacles and ground pattern
         };
         const initialY = getInitialPlayerY();
         let playerY = initialY;
@@ -751,7 +751,7 @@
         const leaderBoardDisplayGameOver = document.getElementById('leaderboardDisplayGameOver');
 
         // Initialize player position
-        player.style.top = initialY + 'px';
+        player.style.bottom = initialY + 'px';
         player.style.left = playerX + 'px';
 
         // Handle viewport changes (mobile orientation, browser chrome changes)
@@ -760,7 +760,7 @@
                 const newInitialY = getInitialPlayerY();
                 if (!playerJumping) {
                     playerY = newInitialY;
-                    player.style.top = playerY + 'px';
+                    player.style.bottom = playerY + 'px';
                 }
             }
         });
@@ -840,12 +840,13 @@
                 const projectile = document.createElement('div');
                 projectile.className = 'projectile';
                 projectile.style.left = playerX + 'px';
-                projectile.style.top = (playerY + 30) + 'px';
+                const projectileY = window.innerHeight - playerY - 30; // Convert bottom positioning to viewport coordinates for projectile
+                projectile.style.top = projectileY + 'px';
                 gameContainer.appendChild(projectile);
                 projectiles.push({
                     element: projectile,
                     x: playerX,
-                    y: playerY + 30,
+                    y: projectileY,
                     vx: 0,
                     vy: -19 // ~361px toss height
                 });
@@ -942,7 +943,7 @@
             playerY = resetY;
             playerX = window.innerWidth / 2;
             playerVx = 0;
-            player.style.top = resetY + 'px';
+            player.style.bottom = resetY + 'px';
             player.style.left = playerX + 'px';
             obstacles.forEach(ob => ob.element.remove());
             targets.forEach(t => t.element.remove());
@@ -1057,7 +1058,7 @@
                     jumpHoldTime += deltaTime;
                 }
                 const dragForce = drag * jumpVelocity;
-                const nextY = playerY - jumpVelocity;
+                const nextY = playerY + jumpVelocity; // Add velocity to increase bottom distance
                 jumpVelocity -= (currentGravity + dragForce) * deltaTime * 60;
 
                 // Air control
@@ -1072,7 +1073,7 @@
                 playerX = Math.max(20, Math.min(window.innerWidth - 20, playerX)); // Keep player within bounds
 
                 const currentGroundY = getInitialPlayerY();
-                if (nextY >= currentGroundY) {
+                if (nextY <= currentGroundY) { // Land when returning to ground level
                     playerY = currentGroundY;
                     playerJumping = false;
                     jumpVelocity = 0;
@@ -1081,7 +1082,7 @@
                 } else {
                     playerY = nextY;
                 }
-                player.style.top = playerY + 'px';
+                player.style.bottom = playerY + 'px';
                 player.style.left = playerX + 'px';
 
                 // Spawn particles
@@ -1089,25 +1090,26 @@
                 const spawnInterval = jumpButtonPressed && jumpHoldTime < 0.3 ? 0.05 : 0.1;
                 if (particleSpawnTimer >= spawnInterval) {
                     const vx = jumpButtonPressed ? (Math.random() - 0.5) * 2 : 0;
-                    spawnParticle(playerX, playerY + 60, vx, 1);
+                    const particleY = window.innerHeight - playerY; // Convert bottom positioning to viewport coordinates for particles
+                    spawnParticle(playerX, particleY, vx, 1);
                     particleSpawnTimer = 0;
                 }
             }
 
             // Update player shadow
-            const shadowScale = 1 - (initialY - playerY) / 100;
+            const shadowScale = 1 - (playerY - initialY) / 100; // Adjusted for bottom positioning
             playerShadow.style.width = (40 * shadowScale) + 'px';
             playerShadow.style.height = (10 * shadowScale) + 'px';
             playerShadow.style.opacity = shadowScale;
             playerShadow.style.left = playerX + 'px';
 
-            // Check for player-target collision
+            // Check for player-target collision  
             for (let tIndex = targets.length - 1; tIndex >= 0; tIndex--) {
                 const target = targets[tIndex];
                 const playerLeft = playerX - 20;
                 const playerRight = playerX + 20;
-                const playerTop = playerY;
-                const playerBottom = playerY + 60;
+                const playerTop = window.innerHeight - playerY - 60; // Convert bottom positioning to viewport coordinates
+                const playerBottom = window.innerHeight - playerY;
                 const targetLeft = target.x - 10;
                 const targetRight = target.x + 60;
                 const targetTop = target.y - 10;
@@ -1133,8 +1135,8 @@
                 }
                 const playerLeft = playerX - 20;
                 const playerRight = playerX + 20;
-                const playerTop = playerY;
-                const playerBottom = playerY + 60;
+                const playerTop = window.innerHeight - playerY - 60; // Convert bottom positioning to viewport coordinates
+                const playerBottom = window.innerHeight - playerY;
                 const powerUpLeft = powerUp.x - 10;
                 const powerUpRight = powerUp.x + 30;
                 const powerUpTop = powerUp.y - 10;
@@ -1157,15 +1159,15 @@
                     ob.element.remove();
                     obstacles.splice(index, 1);
                     score += 5;
-                    showFloatingScore(playerX, playerY - 20, 5);
+                    showFloatingScore(playerX, window.innerHeight - playerY - 20, 5); // Convert to viewport coordinates
                     return;
                 }
                 const playerLeft = playerX - 20;
                 const playerRight = playerX + 20;
-                const playerBottom = playerY + 60;
+                const playerBottom = window.innerHeight - playerY; // Convert bottom positioning to viewport coordinates
                 const obstacleLeft = ob.x - 30;
                 const obstacleRight = ob.x + 80;
-                const obstacleTop = window.innerHeight - 120 - 50;
+                const obstacleTop = window.innerHeight - 120 - 50; // Obstacles positioned at bottom: 120px in CSS
                 if (playerLeft < obstacleRight && playerRight > obstacleLeft && playerBottom > obstacleTop) {
                     endGame();
                 }
