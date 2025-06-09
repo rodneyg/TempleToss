@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>Temple Toss</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
@@ -29,6 +29,11 @@
             font-family: 'Poppins', sans-serif;
             touch-action: none;
             background-color: #111;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         #gameContainer {
@@ -239,6 +244,8 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             transition: all 0.2s;
             user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .controlBtn:active {
@@ -330,6 +337,8 @@
             cursor: pointer;
             transition: all 0.2s;
             box-shadow: 0 4px 0 #BF360C;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .menu-button:hover {
