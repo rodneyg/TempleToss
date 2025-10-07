@@ -650,14 +650,14 @@
         let jumpHoldTime = 0;
         let superJumpActive = false;
         let superJumpTimer = 0;
-        const jumpStrength = 24; // Enhanced for mobile - ~576px jump height  
-        const superJumpStrength = 30; // Enhanced super jump height
+        const jumpStrength = 30; // Significantly enhanced for mobile - allows clearing 50px obstacles easily
+        const superJumpStrength = 40; // Enhanced super jump height
         const gravity = 0.7; // Increased for tighter jump
         const drag = 0.1;
         const groundHeight = 120;
         const playerHeight = 60;
-        const initialY = window.innerHeight - groundHeight - playerHeight;
-        let playerY = initialY;
+        const getInitialY = () => window.innerHeight - groundHeight - playerHeight;
+        let playerY = getInitialY();
         let playerX = window.innerWidth / 2;
         let playerVx = 0; // Horizontal velocity for air control
         const maxAirSpeed = 5; // Cap for horizontal air speed
@@ -729,7 +729,7 @@
         const leaderBoardDisplayGameOver = document.getElementById('leaderboardDisplayGameOver');
 
         // Initialize player position
-        player.style.top = initialY + 'px';
+        player.style.top = getInitialY() + 'px';
         player.style.left = playerX + 'px';
 
         // Music and SFX toggle functionality
@@ -901,10 +901,10 @@
             gameOver = false;
             score = 0;
             playerJumping = false;
-            playerY = initialY;
+            playerY = getInitialY();
             playerX = window.innerWidth / 2;
             playerVx = 0;
-            player.style.top = initialY + 'px';
+            player.style.top = getInitialY() + 'px';
             player.style.left = playerX + 'px';
             obstacles.forEach(ob => ob.element.remove());
             targets.forEach(t => t.element.remove());
@@ -1032,8 +1032,9 @@
                 playerX += playerVx;
                 playerX = Math.max(20, Math.min(window.innerWidth - 20, playerX)); // Keep player within bounds
 
-                if (nextY >= initialY) {
-                    playerY = initialY;
+                const currentGroundY = getInitialY();
+                if (nextY >= currentGroundY) {
+                    playerY = currentGroundY;
                     playerJumping = false;
                     jumpVelocity = 0;
                     jumpHoldTime = 0;
@@ -1055,7 +1056,7 @@
             }
 
             // Update player shadow
-            const shadowScale = 1 - (initialY - playerY) / 100;
+            const shadowScale = 1 - (getInitialY() - playerY) / 100;
             playerShadow.style.width = (40 * shadowScale) + 'px';
             playerShadow.style.height = (10 * shadowScale) + 'px';
             playerShadow.style.opacity = shadowScale;
@@ -1123,10 +1124,15 @@
                 const playerLeft = playerX - 20;
                 const playerRight = playerX + 20;
                 const playerBottom = playerY + 60;
-                const obstacleLeft = ob.x - 30;
-                const obstacleRight = ob.x + 80;
+                const playerTop = playerY;
+                const obstacleLeft = ob.x;
+                const obstacleRight = ob.x + 50;
                 const obstacleTop = window.innerHeight - 120 - 50;
-                if (playerLeft < obstacleRight && playerRight > obstacleLeft && playerBottom > obstacleTop) {
+                const obstacleBottom = window.innerHeight - 120;
+                // Only collide if player is on the ground level (not jumping over)
+                if (playerLeft < obstacleRight && playerRight > obstacleLeft && 
+                    playerBottom > obstacleTop && playerTop < obstacleBottom) {
+                    console.log("COLLISION!", {playerLeft, playerRight, playerTop, playerBottom, obstacleLeft, obstacleRight, obstacleTop, obstacleBottom, obX: ob.x});
                     endGame();
                 }
             });
@@ -1304,6 +1310,12 @@
             instructions.style.display = 'none';
             resetGame();
             gameStarted = true;
+            console.log("=== GAME START ===");
+            console.log("Window size:", window.innerWidth, "x", window.innerHeight);
+            console.log("Player Y (from top):", playerY);
+            console.log("Player bottom:", playerY + 60);
+            console.log("Obstacle bottom (from top):", window.innerHeight - 120);
+            console.log("Obstacle top (from top):", window.innerHeight - 120 - 50);
             lastTime = performance.now();
             animationFrame = requestAnimationFrame(gameLoop);
         });
