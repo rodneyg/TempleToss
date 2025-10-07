@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Temple Toss</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
@@ -29,11 +29,6 @@
             font-family: 'Poppins', sans-serif;
             touch-action: none;
             background-color: #111;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
         }
 
         #gameContainer {
@@ -84,7 +79,6 @@
             height: 60px;
             background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 60'%3E%3Crect x='10' y='0' width='20' height='20' rx='10' fill='%23FFD700'/%3E%3Crect x='5' y='18' width='30' height='30' rx='3' fill='%23FF5722'/%3E%3Crect x='10' y='48' width='8' height='12' fill='%23795548'/%3E%3Crect x='22' y='48' width='8' height='12' fill='%23795548'/%3E%3Ccircle cx='15' cy='10' r='3' fill='%23000'/%3E%3Ccircle cx='25' cy='10' r='3' fill='%23000'/%3E%3C/svg%3E") no-repeat;
             left: 50%;
-            bottom: 120px; /* Align with obstacles when on ground */
             transform: translateX(-50%);
             z-index: 10;
             transition: transform 0.05s ease-out;
@@ -245,8 +239,6 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             transition: all 0.2s;
             user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
         }
 
         .controlBtn:active {
@@ -262,16 +254,6 @@
         #tossButton {
             background: linear-gradient(to bottom right, #FF9800, #E65100);
             margin-left: auto;
-            transition: all 0.3s ease;
-        }
-
-        #tossButton.ready {
-            animation: pulse-ready 2s infinite;
-        }
-
-        @keyframes pulse-ready {
-            0%, 100% { box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); }
-            50% { box-shadow: 0 4px 15px rgba(255, 152, 0, 0.6); }
         }
 
         .keyHint {
@@ -295,19 +277,6 @@
             background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='24' fill='%23F44336'/%3E%3Ccircle cx='25' cy='25' r='18' fill='white'/%3E%3Ccircle cx='25' cy='25' r='12' fill='%23F44336'/%3E%3Ccircle cx='25' cy='25' r='6' fill='white'/%3E%3C/svg%3E") no-repeat;
             border-radius: 50%;
             z-index: 8;
-            animation: target-glow 2s ease-in-out infinite alternate;
-        }
-
-        @keyframes target-glow {
-            0% { 
-                box-shadow: 0 0 5px rgba(244, 67, 54, 0.5);
-                transform: scale(1);
-            }
-            100% { 
-                box-shadow: 0 0 15px rgba(244, 67, 54, 0.8);
-                transform: scale(1.05);
-            }
-        }
         }
 
         .hitEffect {
@@ -361,8 +330,6 @@
             cursor: pointer;
             transition: all 0.2s;
             box-shadow: 0 4px 0 #BF360C;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
         }
 
         .menu-button:hover {
@@ -459,128 +426,6 @@
                 font-size: 24px;
             }
         }
-
-        /* iPhone SE and small mobile devices */
-        @media (max-width: 375px) {
-            #controls {
-                padding: 0 8px;
-                bottom: 15px;
-            }
-
-            .controlBtn {
-                width: 60px;
-                height: 60px;
-                font-size: 14px;
-            }
-
-            .keyHint {
-                font-size: 10px;
-                margin-top: 3px;
-            }
-
-            #scoreDisplay {
-                font-size: 20px;
-                top: 15px;
-                left: 15px;
-            }
-
-            #musicToggle, #sfxToggle {
-                width: 35px;
-                height: 35px;
-                font-size: 20px;
-                top: 15px;
-            }
-
-            #musicToggle {
-                right: 60px;
-            }
-
-            #sfxToggle {
-                right: 15px;
-            }
-
-            #leaderboardDisplay {
-                font-size: 16px;
-                top: 50px;
-                left: 15px;
-            }
-
-            #gameOver, #instructions {
-                padding: 20px;
-                margin: 0 10px;
-                max-width: calc(100vw - 20px);
-                max-height: calc(100vh - 40px);
-                overflow-y: auto;
-            }
-
-            #gameOver h2, #instructions h2 {
-                font-size: 36px;
-                margin-bottom: 15px;
-            }
-
-            #gameOver p, #instructions p {
-                font-size: 14px;
-                margin-bottom: 10px;
-            }
-
-            .menu-button {
-                padding: 10px 18px;
-                font-size: 14px;
-                margin: 8px;
-            }
-
-            .keyboard-hint {
-                margin: 8px 0;
-                font-size: 12px;
-            }
-
-            .key {
-                padding: 3px 6px;
-                margin: 0 3px;
-                font-size: 11px;
-            }
-
-            #loadingTitle {
-                font-size: 48px;
-                margin-bottom: 30px;
-            }
-
-            #loadingBar {
-                width: 90%;
-                height: 15px;
-            }
-        }
-
-        /* Very small screens */
-        @media (max-width: 320px) {
-            .controlBtn {
-                width: 55px;
-                height: 55px;
-                font-size: 12px;
-            }
-
-            .keyHint {
-                font-size: 9px;
-            }
-
-            #scoreDisplay {
-                font-size: 18px;
-            }
-
-            #musicToggle, #sfxToggle {
-                width: 30px;
-                height: 30px;
-                font-size: 18px;
-            }
-
-            #gameOver h2, #instructions h2 {
-                font-size: 30px;
-            }
-
-            #loadingTitle {
-                font-size: 40px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -605,11 +450,11 @@
         <div id="controls">
             <div id="jumpButton" class="controlBtn">
                 JUMP
-                <div class="keyHint">Tap / Space</div>
+                <div class="keyHint">Space / W</div>
             </div>
             <div id="tossButton" class="controlBtn">
                 TOSS
-                <div class="keyHint">Tap / Swipe ↑ / T</div>
+                <div class="keyHint">T / Click</div>
             </div>
         </div>
 
@@ -619,11 +464,11 @@
 
             <div class="keyboard-hint">
                 <span>Jump:</span>
-                <span class="key">Tap Screen</span>
-                <span>or</span>
                 <span class="key">Space</span>
                 <span>or</span>
                 <span class="key">W</span>
+                <span>or</span>
+                <span class="key">↑</span>
             </div>
 
             <div class="keyboard-hint">
@@ -634,15 +479,12 @@
             </div>
 
             <div class="keyboard-hint">
-                <span>Toss Projectiles:</span>
-                <span class="key">Swipe Up ↑</span>
+                <span>Toss:</span>
+                <span class="key">T</span>
                 <span>or</span>
-                <span class="key">Tap TOSS</span>
-                <span>or</span>
-                <span class="key">T Key</span>
+                <span class="key">Click</span>
             </div>
 
-            <p><strong>Mobile:</strong> Tap anywhere to jump, swipe up to toss projectiles at targets!</p>
             <p>Avoid obstacles by jumping and hit targets for bonus points!</p>
             <button id="startButton" class="menu-button">START GAME</button>
         </div>
@@ -668,17 +510,13 @@
         let jumpHoldTime = 0;
         let superJumpActive = false;
         let superJumpTimer = 0;
-        const jumpStrength = 22; // Enhanced jump height for mobile compatibility
-        const superJumpStrength = 30; // Enhanced super jump height
+        const jumpStrength = 16; // ~256px jump height
+        const superJumpStrength = 25; // ~625px super jump height
         const gravity = 0.7; // Increased for tighter jump
         const drag = 0.1;
         const groundHeight = 120;
         const playerHeight = 60;
-        // Ensure consistent positioning across devices, accounting for mobile viewport issues
-        const getInitialPlayerY = () => {
-            return 120; // Bottom position - align with obstacles and ground pattern
-        };
-        const initialY = getInitialPlayerY();
+        const initialY = window.innerHeight - groundHeight - playerHeight;
         let playerY = initialY;
         let playerX = window.innerWidth / 2;
         let playerVx = 0; // Horizontal velocity for air control
@@ -751,19 +589,8 @@
         const leaderBoardDisplayGameOver = document.getElementById('leaderboardDisplayGameOver');
 
         // Initialize player position
-        player.style.bottom = initialY + 'px';
+        player.style.top = initialY + 'px';
         player.style.left = playerX + 'px';
-
-        // Handle viewport changes (mobile orientation, browser chrome changes)
-        window.addEventListener('resize', () => {
-            if (!gameStarted || gameOver) {
-                const newInitialY = getInitialPlayerY();
-                if (!playerJumping) {
-                    playerY = newInitialY;
-                    player.style.bottom = playerY + 'px';
-                }
-            }
-        });
 
         // Music and SFX toggle functionality
         musicToggle.innerHTML = isMusicOn ? '<i class="fas fa-volume-up"></i>' : '<i class="fas fa-volume-mute"></i>';
@@ -804,23 +631,6 @@
             setTimeout(() => floatingScore.remove(), 1000);
         }
 
-        // Function to provide haptic feedback if available
-        function hapticFeedback(type = 'light') {
-            if (navigator.vibrate) {
-                switch (type) {
-                    case 'light':
-                        navigator.vibrate(10);
-                        break;
-                    case 'medium':
-                        navigator.vibrate(25);
-                        break;
-                    case 'heavy':
-                        navigator.vibrate(50);
-                        break;
-                }
-            }
-        }
-
         // Jump function
         function jump() {
             if (!playerJumping && !gameOver && gameStarted) {
@@ -830,7 +640,6 @@
                 player.classList.add('jumping');
                 setTimeout(() => player.classList.remove('jumping'), 300);
                 playSfx(jumpSound);
-                hapticFeedback('light'); // Add haptic feedback for jump
             }
         }
 
@@ -840,24 +649,18 @@
                 const projectile = document.createElement('div');
                 projectile.className = 'projectile';
                 projectile.style.left = playerX + 'px';
-                const projectileY = window.innerHeight - playerY - 30; // Convert bottom positioning to viewport coordinates for projectile
-                projectile.style.top = projectileY + 'px';
+                projectile.style.top = (playerY + 30) + 'px';
                 gameContainer.appendChild(projectile);
                 projectiles.push({
                     element: projectile,
                     x: playerX,
-                    y: projectileY,
+                    y: playerY + 30,
                     vx: 0,
                     vy: -19 // ~361px toss height
                 });
                 canToss = false;
-                tossButton.classList.remove('ready');
-                setTimeout(() => { 
-                    canToss = true; 
-                    tossButton.classList.add('ready');
-                }, 500);
+                setTimeout(() => { canToss = true; }, 500);
                 playSfx(tossSound);
-                hapticFeedback('medium'); // Add haptic feedback for toss
             }
         }
 
@@ -917,7 +720,6 @@
                 spawnParticle(playerX, playerY, 2 * Math.cos(angle), 2 * Math.sin(angle));
             }
             playSfx(orbCollectSound);
-            hapticFeedback('medium'); // Haptic feedback for power-up
         }
 
         // Update super jump
@@ -939,11 +741,10 @@
             gameOver = false;
             score = 0;
             playerJumping = false;
-            const resetY = getInitialPlayerY();
-            playerY = resetY;
+            playerY = initialY;
             playerX = window.innerWidth / 2;
             playerVx = 0;
-            player.style.bottom = resetY + 'px';
+            player.style.top = initialY + 'px';
             player.style.left = playerX + 'px';
             obstacles.forEach(ob => ob.element.remove());
             targets.forEach(t => t.element.remove());
@@ -959,7 +760,6 @@
             lastTargetTime = 0;
             scoreDisplay.textContent = 'Score: 0';
             canToss = true;
-            tossButton.classList.remove('ready'); // Reset toss button state
             firstPowerUpSpawned = false;
             powerUpSpawnTimer = 0;
             superJumpActive = false;
@@ -985,7 +785,6 @@
             updateLeaderboardDisplay();
             gameOverScreen.style.display = 'block';
             playSfx(obstacleHitSound);
-            hapticFeedback('heavy'); // Strong haptic feedback for game over
         }
 
         // Update leaderboard display
@@ -1058,7 +857,7 @@
                     jumpHoldTime += deltaTime;
                 }
                 const dragForce = drag * jumpVelocity;
-                const nextY = playerY + jumpVelocity; // Add velocity to increase bottom distance
+                const nextY = playerY - jumpVelocity;
                 jumpVelocity -= (currentGravity + dragForce) * deltaTime * 60;
 
                 // Air control
@@ -1072,9 +871,8 @@
                 playerX += playerVx;
                 playerX = Math.max(20, Math.min(window.innerWidth - 20, playerX)); // Keep player within bounds
 
-                const currentGroundY = getInitialPlayerY();
-                if (nextY <= currentGroundY) { // Land when returning to ground level
-                    playerY = currentGroundY;
+                if (nextY >= initialY) {
+                    playerY = initialY;
                     playerJumping = false;
                     jumpVelocity = 0;
                     jumpHoldTime = 0;
@@ -1082,7 +880,7 @@
                 } else {
                     playerY = nextY;
                 }
-                player.style.bottom = playerY + 'px';
+                player.style.top = playerY + 'px';
                 player.style.left = playerX + 'px';
 
                 // Spawn particles
@@ -1090,26 +888,25 @@
                 const spawnInterval = jumpButtonPressed && jumpHoldTime < 0.3 ? 0.05 : 0.1;
                 if (particleSpawnTimer >= spawnInterval) {
                     const vx = jumpButtonPressed ? (Math.random() - 0.5) * 2 : 0;
-                    const particleY = window.innerHeight - playerY; // Convert bottom positioning to viewport coordinates for particles
-                    spawnParticle(playerX, particleY, vx, 1);
+                    spawnParticle(playerX, playerY + 60, vx, 1);
                     particleSpawnTimer = 0;
                 }
             }
 
             // Update player shadow
-            const shadowScale = 1 - (playerY - initialY) / 100; // Adjusted for bottom positioning
+            const shadowScale = 1 - (initialY - playerY) / 100;
             playerShadow.style.width = (40 * shadowScale) + 'px';
             playerShadow.style.height = (10 * shadowScale) + 'px';
             playerShadow.style.opacity = shadowScale;
             playerShadow.style.left = playerX + 'px';
 
-            // Check for player-target collision  
+            // Check for player-target collision
             for (let tIndex = targets.length - 1; tIndex >= 0; tIndex--) {
                 const target = targets[tIndex];
                 const playerLeft = playerX - 20;
                 const playerRight = playerX + 20;
-                const playerTop = window.innerHeight - playerY - 60; // Convert bottom positioning to viewport coordinates
-                const playerBottom = window.innerHeight - playerY;
+                const playerTop = playerY;
+                const playerBottom = playerY + 60;
                 const targetLeft = target.x - 10;
                 const targetRight = target.x + 60;
                 const targetTop = target.y - 10;
@@ -1135,8 +932,8 @@
                 }
                 const playerLeft = playerX - 20;
                 const playerRight = playerX + 20;
-                const playerTop = window.innerHeight - playerY - 60; // Convert bottom positioning to viewport coordinates
-                const playerBottom = window.innerHeight - playerY;
+                const playerTop = playerY;
+                const playerBottom = playerY + 60;
                 const powerUpLeft = powerUp.x - 10;
                 const powerUpRight = powerUp.x + 30;
                 const powerUpTop = powerUp.y - 10;
@@ -1159,15 +956,15 @@
                     ob.element.remove();
                     obstacles.splice(index, 1);
                     score += 5;
-                    showFloatingScore(playerX, window.innerHeight - playerY - 20, 5); // Convert to viewport coordinates
+                    showFloatingScore(playerX, playerY - 20, 5);
                     return;
                 }
                 const playerLeft = playerX - 20;
                 const playerRight = playerX + 20;
-                const playerBottom = window.innerHeight - playerY; // Convert bottom positioning to viewport coordinates
+                const playerBottom = playerY + 60;
                 const obstacleLeft = ob.x - 30;
                 const obstacleRight = ob.x + 80;
-                const obstacleTop = window.innerHeight - 120 - 50; // Obstacles positioned at bottom: 120px in CSS
+                const obstacleTop = window.innerHeight - 120 - 50;
                 if (playerLeft < obstacleRight && playerRight > obstacleLeft && playerBottom > obstacleTop) {
                     endGame();
                 }
@@ -1243,78 +1040,13 @@
             animationFrame = requestAnimationFrame(gameLoop);
         }
 
-        // Touch gesture variables
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let touchStartTime = 0;
-        let isTouching = false;
-
-        // Touch gesture controls
-        gameContainer.addEventListener('touchstart', (e) => {
-            if (gameOver || !gameStarted) return;
-            
-            e.preventDefault();
-            const touch = e.touches[0];
-            touchStartX = touch.clientX;
-            touchStartY = touch.clientY;
-            touchStartTime = Date.now();
-            isTouching = true;
-
-            // Tap to jump (anywhere on screen)
-            jumpButtonPressed = true;
-            if (!playerJumping) jump();
-        });
-
-        gameContainer.addEventListener('touchend', (e) => {
-            if (gameOver || !gameStarted) return;
-            
-            e.preventDefault();
-            jumpButtonPressed = false;
-            
-            if (!isTouching) return;
-            isTouching = false;
-
-            const touch = e.changedTouches[0];
-            const touchEndX = touch.clientX;
-            const touchEndY = touch.clientY;
-            const touchDuration = Date.now() - touchStartTime;
-            const deltaX = touchEndX - touchStartX;
-            const deltaY = touchEndY - touchStartY;
-            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-            // Swipe up to toss (more lenient detection for better mobile experience)
-            if (distance > 20 && deltaY < -15 && touchDuration < 800) {
-                toss();
-            }
-        });
-
-        gameContainer.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // Prevent scrolling
-        });
-
         // Event listeners
         jumpButton.addEventListener('mousedown', () => {
             jumpButtonPressed = true;
             if (!playerJumping && !gameOver && gameStarted) jump();
         });
         jumpButton.addEventListener('mouseup', () => jumpButtonPressed = false);
-        
-        // Touch events for buttons
-        jumpButton.addEventListener('touchstart', (e) => {
-            e.stopPropagation();
-            jumpButtonPressed = true;
-            if (!playerJumping && !gameOver && gameStarted) jump();
-        });
-        jumpButton.addEventListener('touchend', (e) => {
-            e.stopPropagation();
-            jumpButtonPressed = false;
-        });
-        
         tossButton.addEventListener('click', toss);
-        tossButton.addEventListener('touchstart', (e) => {
-            e.stopPropagation();
-            toss();
-        });
 
         document.addEventListener('keydown', (e) => {
             if (!gameOver && gameStarted) {
@@ -1346,7 +1078,6 @@
             instructions.style.display = 'none';
             resetGame();
             gameStarted = true;
-            tossButton.classList.add('ready'); // Enable toss button visual feedback
             lastTime = performance.now();
             animationFrame = requestAnimationFrame(gameLoop);
         });
@@ -1355,7 +1086,6 @@
         restartButton.addEventListener('click', () => {
             resetGame();
             gameStarted = true;
-            tossButton.classList.add('ready'); // Enable toss button visual feedback
             gameOverScreen.style.display = 'none';
             lastTime = performance.now();
             animationFrame = requestAnimationFrame(gameLoop);
