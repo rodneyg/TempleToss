@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>Temple Toss</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
@@ -29,6 +29,11 @@
             font-family: 'Poppins', sans-serif;
             touch-action: none;
             background-color: #111;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         #gameContainer {
@@ -246,6 +251,11 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
+        .controlBtn {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
         #jumpButton {
             background: linear-gradient(to bottom right, #4CAF50, #2E7D32);
             margin-right: auto;
@@ -342,6 +352,11 @@
             box-shadow: 0 2px 0 #BF360C;
         }
 
+        .menu-button {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
         .keyboard-hint {
             display: flex;
             align-items: center;
@@ -426,6 +441,128 @@
                 font-size: 24px;
             }
         }
+
+        /* iPhone SE and small mobile devices */
+        @media (max-width: 375px) {
+            #controls {
+                padding: 0 8px;
+                bottom: 15px;
+            }
+
+            .controlBtn {
+                width: 60px;
+                height: 60px;
+                font-size: 14px;
+            }
+
+            .keyHint {
+                font-size: 10px;
+                margin-top: 3px;
+            }
+
+            #scoreDisplay {
+                font-size: 20px;
+                top: 15px;
+                left: 15px;
+            }
+
+            #musicToggle, #sfxToggle {
+                width: 35px;
+                height: 35px;
+                font-size: 20px;
+                top: 15px;
+            }
+
+            #musicToggle {
+                right: 60px;
+            }
+
+            #sfxToggle {
+                right: 15px;
+            }
+
+            #leaderboardDisplay {
+                font-size: 16px;
+                top: 50px;
+                left: 15px;
+            }
+
+            #gameOver, #instructions {
+                padding: 20px;
+                margin: 0 10px;
+                max-width: calc(100vw - 20px);
+                max-height: calc(100vh - 40px);
+                overflow-y: auto;
+            }
+
+            #gameOver h2, #instructions h2 {
+                font-size: 36px;
+                margin-bottom: 15px;
+            }
+
+            #gameOver p, #instructions p {
+                font-size: 14px;
+                margin-bottom: 10px;
+            }
+
+            .menu-button {
+                padding: 10px 18px;
+                font-size: 14px;
+                margin: 8px;
+            }
+
+            .keyboard-hint {
+                margin: 8px 0;
+                font-size: 12px;
+            }
+
+            .key {
+                padding: 3px 6px;
+                margin: 0 3px;
+                font-size: 11px;
+            }
+
+            #loadingTitle {
+                font-size: 48px;
+                margin-bottom: 30px;
+            }
+
+            #loadingBar {
+                width: 90%;
+                height: 15px;
+            }
+        }
+
+        /* Very small screens */
+        @media (max-width: 320px) {
+            .controlBtn {
+                width: 55px;
+                height: 55px;
+                font-size: 12px;
+            }
+
+            .keyHint {
+                font-size: 9px;
+            }
+
+            #scoreDisplay {
+                font-size: 18px;
+            }
+
+            #musicToggle, #sfxToggle {
+                width: 30px;
+                height: 30px;
+                font-size: 18px;
+            }
+
+            #gameOver h2, #instructions h2 {
+                font-size: 30px;
+            }
+
+            #loadingTitle {
+                font-size: 40px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -450,11 +587,11 @@
         <div id="controls">
             <div id="jumpButton" class="controlBtn">
                 JUMP
-                <div class="keyHint">Space / W</div>
+                <div class="keyHint">Tap / Space</div>
             </div>
             <div id="tossButton" class="controlBtn">
                 TOSS
-                <div class="keyHint">T / Click</div>
+                <div class="keyHint">Tap / Swipe ↑ / T</div>
             </div>
         </div>
 
@@ -464,11 +601,11 @@
 
             <div class="keyboard-hint">
                 <span>Jump:</span>
+                <span class="key">Tap Screen</span>
+                <span>or</span>
                 <span class="key">Space</span>
                 <span>or</span>
                 <span class="key">W</span>
-                <span>or</span>
-                <span class="key">↑</span>
             </div>
 
             <div class="keyboard-hint">
@@ -479,12 +616,15 @@
             </div>
 
             <div class="keyboard-hint">
-                <span>Toss:</span>
-                <span class="key">T</span>
+                <span>Toss Projectiles:</span>
+                <span class="key">Swipe Up ↑</span>
                 <span>or</span>
-                <span class="key">Click</span>
+                <span class="key">Tap TOSS</span>
+                <span>or</span>
+                <span class="key">T Key</span>
             </div>
 
+            <p><strong>Mobile:</strong> Tap anywhere to jump, swipe up to toss projectiles at targets!</p>
             <p>Avoid obstacles by jumping and hit targets for bonus points!</p>
             <button id="startButton" class="menu-button">START GAME</button>
         </div>
@@ -510,14 +650,14 @@
         let jumpHoldTime = 0;
         let superJumpActive = false;
         let superJumpTimer = 0;
-        const jumpStrength = 16; // ~256px jump height
-        const superJumpStrength = 25; // ~625px super jump height
+        const jumpStrength = 30; // Significantly enhanced for mobile - allows clearing 50px obstacles easily
+        const superJumpStrength = 40; // Enhanced super jump height
         const gravity = 0.7; // Increased for tighter jump
         const drag = 0.1;
         const groundHeight = 120;
         const playerHeight = 60;
-        const initialY = window.innerHeight - groundHeight - playerHeight;
-        let playerY = initialY;
+        const getInitialY = () => window.innerHeight - groundHeight - playerHeight;
+        let playerY = getInitialY();
         let playerX = window.innerWidth / 2;
         let playerVx = 0; // Horizontal velocity for air control
         const maxAirSpeed = 5; // Cap for horizontal air speed
@@ -589,7 +729,7 @@
         const leaderBoardDisplayGameOver = document.getElementById('leaderboardDisplayGameOver');
 
         // Initialize player position
-        player.style.top = initialY + 'px';
+        player.style.top = getInitialY() + 'px';
         player.style.left = playerX + 'px';
 
         // Music and SFX toggle functionality
@@ -631,6 +771,23 @@
             setTimeout(() => floatingScore.remove(), 1000);
         }
 
+        // Function to provide haptic feedback if available
+        function hapticFeedback(type = 'light') {
+            if (navigator.vibrate) {
+                switch (type) {
+                    case 'light':
+                        navigator.vibrate(10);
+                        break;
+                    case 'medium':
+                        navigator.vibrate(25);
+                        break;
+                    case 'heavy':
+                        navigator.vibrate(50);
+                        break;
+                }
+            }
+        }
+
         // Jump function
         function jump() {
             if (!playerJumping && !gameOver && gameStarted) {
@@ -640,6 +797,7 @@
                 player.classList.add('jumping');
                 setTimeout(() => player.classList.remove('jumping'), 300);
                 playSfx(jumpSound);
+                hapticFeedback('light');
             }
         }
 
@@ -661,6 +819,7 @@
                 canToss = false;
                 setTimeout(() => { canToss = true; }, 500);
                 playSfx(tossSound);
+                hapticFeedback('medium');
             }
         }
 
@@ -720,6 +879,7 @@
                 spawnParticle(playerX, playerY, 2 * Math.cos(angle), 2 * Math.sin(angle));
             }
             playSfx(orbCollectSound);
+            hapticFeedback('medium');
         }
 
         // Update super jump
@@ -741,10 +901,10 @@
             gameOver = false;
             score = 0;
             playerJumping = false;
-            playerY = initialY;
+            playerY = getInitialY();
             playerX = window.innerWidth / 2;
             playerVx = 0;
-            player.style.top = initialY + 'px';
+            player.style.top = getInitialY() + 'px';
             player.style.left = playerX + 'px';
             obstacles.forEach(ob => ob.element.remove());
             targets.forEach(t => t.element.remove());
@@ -785,6 +945,7 @@
             updateLeaderboardDisplay();
             gameOverScreen.style.display = 'block';
             playSfx(obstacleHitSound);
+            hapticFeedback('heavy');
         }
 
         // Update leaderboard display
@@ -871,8 +1032,9 @@
                 playerX += playerVx;
                 playerX = Math.max(20, Math.min(window.innerWidth - 20, playerX)); // Keep player within bounds
 
-                if (nextY >= initialY) {
-                    playerY = initialY;
+                const currentGroundY = getInitialY();
+                if (nextY >= currentGroundY) {
+                    playerY = currentGroundY;
                     playerJumping = false;
                     jumpVelocity = 0;
                     jumpHoldTime = 0;
@@ -894,7 +1056,7 @@
             }
 
             // Update player shadow
-            const shadowScale = 1 - (initialY - playerY) / 100;
+            const shadowScale = 1 - (getInitialY() - playerY) / 100;
             playerShadow.style.width = (40 * shadowScale) + 'px';
             playerShadow.style.height = (10 * shadowScale) + 'px';
             playerShadow.style.opacity = shadowScale;
@@ -962,10 +1124,14 @@
                 const playerLeft = playerX - 20;
                 const playerRight = playerX + 20;
                 const playerBottom = playerY + 60;
-                const obstacleLeft = ob.x - 30;
-                const obstacleRight = ob.x + 80;
+                const playerTop = playerY;
+                const obstacleLeft = ob.x;
+                const obstacleRight = ob.x + 50;
                 const obstacleTop = window.innerHeight - 120 - 50;
-                if (playerLeft < obstacleRight && playerRight > obstacleLeft && playerBottom > obstacleTop) {
+                const obstacleBottom = window.innerHeight - 120;
+                // Only collide if player is on the ground level (not jumping over)
+                if (playerLeft < obstacleRight && playerRight > obstacleLeft && 
+                    playerBottom > obstacleTop && playerTop < obstacleBottom) {
                     endGame();
                 }
             });
@@ -1040,13 +1206,78 @@
             animationFrame = requestAnimationFrame(gameLoop);
         }
 
+        // Touch gesture variables
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchStartTime = 0;
+        let isTouching = false;
+
+        // Touch gesture controls
+        gameContainer.addEventListener('touchstart', (e) => {
+            if (gameOver || !gameStarted) return;
+            
+            e.preventDefault();
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            touchStartTime = Date.now();
+            isTouching = true;
+
+            // Tap to jump (anywhere on screen)
+            jumpButtonPressed = true;
+            if (!playerJumping) jump();
+        });
+
+        gameContainer.addEventListener('touchend', (e) => {
+            if (gameOver || !gameStarted) return;
+            
+            e.preventDefault();
+            jumpButtonPressed = false;
+            
+            if (!isTouching) return;
+            isTouching = false;
+
+            const touch = e.changedTouches[0];
+            const touchEndX = touch.clientX;
+            const touchEndY = touch.clientY;
+            const touchDuration = Date.now() - touchStartTime;
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            // Swipe up to toss (more lenient detection for better mobile experience)
+            if (distance > 20 && deltaY < -15 && touchDuration < 800) {
+                toss();
+            }
+        });
+
+        gameContainer.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevent scrolling
+        });
+
         // Event listeners
         jumpButton.addEventListener('mousedown', () => {
             jumpButtonPressed = true;
             if (!playerJumping && !gameOver && gameStarted) jump();
         });
         jumpButton.addEventListener('mouseup', () => jumpButtonPressed = false);
+        
+        // Touch events for buttons
+        jumpButton.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            jumpButtonPressed = true;
+            if (!playerJumping && !gameOver && gameStarted) jump();
+        });
+        jumpButton.addEventListener('touchend', (e) => {
+            e.stopPropagation();
+            jumpButtonPressed = false;
+        });
+        
         tossButton.addEventListener('click', toss);
+        tossButton.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            toss();
+        });
 
         document.addEventListener('keydown', (e) => {
             if (!gameOver && gameStarted) {
