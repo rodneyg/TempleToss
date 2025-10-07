@@ -1132,7 +1132,6 @@
                 // Only collide if player is on the ground level (not jumping over)
                 if (playerLeft < obstacleRight && playerRight > obstacleLeft && 
                     playerBottom > obstacleTop && playerTop < obstacleBottom) {
-                    console.log("COLLISION!", {playerLeft, playerRight, playerTop, playerBottom, obstacleLeft, obstacleRight, obstacleTop, obstacleBottom, obX: ob.x});
                     endGame();
                 }
             });
@@ -1310,12 +1309,6 @@
             instructions.style.display = 'none';
             resetGame();
             gameStarted = true;
-            console.log("=== GAME START ===");
-            console.log("Window size:", window.innerWidth, "x", window.innerHeight);
-            console.log("Player Y (from top):", playerY);
-            console.log("Player bottom:", playerY + 60);
-            console.log("Obstacle bottom (from top):", window.innerHeight - 120);
-            console.log("Obstacle top (from top):", window.innerHeight - 120 - 50);
             lastTime = performance.now();
             animationFrame = requestAnimationFrame(gameLoop);
         });
