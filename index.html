@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Temple Toss</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <style>
@@ -23,20 +23,32 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            overflow: hidden;
+            overscroll-behavior: none;
+        }
+
         body {
             margin: 0;
-            overflow: hidden;
             font-family: 'Poppins', sans-serif;
-            touch-action: none;
             background-color: #111;
         }
 
         #gameContainer {
             position: relative;
-            width: 100vw;
+            width: 100%;
             height: 100vh;
+            height: 100dvh;
             background: linear-gradient(to bottom, #1a237e, #311b92);
             overflow: hidden;
+        }
+
+        #gameContainer.playing {
+            touch-action: none;
+        }
+
+        button, #musicToggle, #sfxToggle {
+            touch-action: manipulation;
         }
 
         #backgroundElements {
@@ -216,16 +228,23 @@
 
         #controls {
             position: absolute;
-            bottom: 20px;
+            bottom: max(20px, env(safe-area-inset-bottom));
             left: 0;
             width: 100%;
             display: flex;
             justify-content: space-between;
-            padding: 0 20px;
+            padding: 0 max(20px, env(safe-area-inset-right)) 0 max(20px, env(safe-area-inset-left));
             z-index: 100;
         }
 
+        #controls[hidden], #airControls, .touch-hint {
+            display: none;
+        }
+
         .controlBtn {
+            border: 0;
+            font-family: inherit;
+            flex-direction: column;
             width: 80px;
             height: 80px;
             border-radius: 50%;
@@ -239,6 +258,8 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             transition: all 0.2s;
             user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
         }
 
         .controlBtn:active {
@@ -303,6 +324,10 @@
             padding: 30px;
             border-radius: 10px;
             text-align: center;
+            width: min(440px, calc(100% - max(32px, 2 * env(safe-area-inset-left), 2 * env(safe-area-inset-right))));
+            max-height: calc(100% - max(16px, 2 * env(safe-area-inset-top), 2 * env(safe-area-inset-bottom)));
+            overflow: auto;
+            overscroll-behavior: contain;
             z-index: 200;
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(5px);
@@ -320,6 +345,7 @@
         .menu-button {
             margin: 10px;
             padding: 12px 24px;
+            min-height: 44px;
             background: linear-gradient(to bottom, #FF5722, #E64A19);
             color: white;
             border: none;
@@ -340,6 +366,32 @@
         .menu-button:active {
             transform: translateY(2px);
             box-shadow: 0 2px 0 #BF360C;
+        }
+
+        #leaderboardDisplayGameOver {
+            margin-top: 12px;
+            font-size: 16px;
+            overflow-wrap: anywhere;
+        }
+
+        #scoreForm:not([hidden]) {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        #scoreForm input {
+            min-width: 0;
+            width: 9em;
+            min-height: 44px;
+            padding: 6px;
+            font: inherit;
+        }
+
+        #scoreForm .menu-button {
+            margin: 4px 0;
+            padding-inline: 12px;
         }
 
         .keyboard-hint {
@@ -413,17 +465,109 @@
         }
 
         @media (max-width: 768px) {
+            #scoreDisplay {
+                font-size: 24px;
+            }
+
+            .keyboard-hint {
+                flex-wrap: wrap;
+            }
+        }
+
+        @media (any-pointer: coarse) {
+            #scoreDisplay, #leaderboardDisplay {
+                left: max(12px, env(safe-area-inset-left));
+            }
+
+            #scoreDisplay, #musicToggle, #sfxToggle {
+                top: max(12px, env(safe-area-inset-top));
+            }
+
+            #sfxToggle {
+                right: max(12px, env(safe-area-inset-right));
+            }
+
+            #musicToggle {
+                right: calc(max(12px, env(safe-area-inset-right)) + 48px);
+            }
+
+            #musicToggle, #sfxToggle {
+                width: 44px;
+                height: 44px;
+            }
+
             #controls {
-                padding: 0 10px;
+                padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
+                gap: 12px;
+            }
+
+            #airControls {
+                display: flex;
+                gap: 8px;
             }
 
             .controlBtn {
-                width: 70px;
-                height: 70px;
+                width: clamp(48px, 17vw, 70px);
+                height: clamp(48px, 9dvh, 70px);
+                min-height: 48px;
+                border: 1px solid rgba(255, 255, 255, 0.25);
+                font-size: 14px;
             }
 
-            #scoreDisplay {
+            #airControls .controlBtn {
+                background: linear-gradient(to bottom right, #5D4037, #311b20);
                 font-size: 24px;
+            }
+
+            #jumpButton {
+                margin-right: 0;
+            }
+
+            #tossButton {
+                margin-left: 0;
+            }
+
+            .keyboard-hint, .keyHint {
+                display: none;
+            }
+
+            .touch-hint {
+                display: block;
+                margin: 10px 0;
+            }
+
+            #gameOver, #instructions {
+                padding: 16px;
+            }
+
+            #gameOver h2, #instructions h2 {
+                font-size: clamp(30px, 9vw, 44px);
+                margin-bottom: 8px;
+            }
+
+            .menu-button {
+                margin: 6px 2px;
+                padding-inline: 14px;
+            }
+        }
+
+        @media (any-pointer: coarse) and (max-height: 430px) {
+            #controls {
+                bottom: max(8px, env(safe-area-inset-bottom));
+            }
+
+            #gameOver, #instructions {
+                padding-block: 8px;
+            }
+
+            #gameOver h2, #instructions h2 {
+                font-size: 30px;
+                margin-bottom: 4px;
+            }
+
+            #leaderboardDisplayGameOver {
+                margin-top: 4px;
+                font-size: 14px;
             }
         }
     </style>
@@ -447,15 +591,19 @@
         <div id="ground"></div>
         <div id="groundPattern"></div>
 
-        <div id="controls">
-            <div id="jumpButton" class="controlBtn">
+        <div id="controls" hidden>
+            <div id="airControls">
+                <button type="button" id="leftButton" class="controlBtn" aria-label="Move left">←</button>
+                <button type="button" id="rightButton" class="controlBtn" aria-label="Move right">→</button>
+            </div>
+            <button type="button" id="jumpButton" class="controlBtn">
                 JUMP
-                <div class="keyHint">Space / W</div>
-            </div>
-            <div id="tossButton" class="controlBtn">
+                <span class="keyHint">Space / W</span>
+            </button>
+            <button type="button" id="tossButton" class="controlBtn">
                 TOSS
-                <div class="keyHint">T / Click</div>
-            </div>
+                <span class="keyHint">T</span>
+            </button>
         </div>
 
         <div id="instructions">
@@ -485,6 +633,7 @@
                 <span class="key">Click</span>
             </div>
 
+            <p class="touch-hint">Tap Jump or Toss. Hold Jump to go higher, and hold an arrow to move in the air.</p>
             <p>Avoid obstacles by jumping and hit targets for bonus points!</p>
             <button id="startButton" class="menu-button">START GAME</button>
         </div>
@@ -495,7 +644,11 @@
             <p id="highScore">High score: 0</p>
             <button id="restartButton" class="menu-button">PLAY AGAIN</button>
             <button id="mainMenuButton" class="menu-button">MAIN MENU</button>
-            <div id="leaderboardDisplayGameOver" style="margin-top: 20px; font-size: 18px;"></div>
+            <form id="scoreForm" hidden>
+                <input id="playerName" type="text" placeholder="Player name" aria-label="Player name" maxlength="24" autocomplete="off">
+                <button class="menu-button" type="submit">SAVE SCORE</button>
+            </form>
+            <div id="leaderboardDisplayGameOver"></div>
         </div>
     </div>
 
@@ -516,9 +669,12 @@
         const drag = 0.1;
         const groundHeight = 120;
         const playerHeight = 60;
-        const initialY = window.innerHeight - groundHeight - playerHeight;
+        const gameContainer = document.getElementById('gameContainer');
+        let fieldWidth = gameContainer.clientWidth;
+        let fieldHeight = gameContainer.clientHeight;
+        let initialY = fieldHeight - groundHeight - playerHeight;
         let playerY = initialY;
-        let playerX = window.innerWidth / 2;
+        let playerX = fieldWidth / 2;
         let playerVx = 0; // Horizontal velocity for air control
         const maxAirSpeed = 5; // Cap for horizontal air speed
         let obstacles = [];
@@ -545,9 +701,13 @@
         let canToss = true;
         let animationFrame = null;
         let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
-        let jumpButtonPressed = false;
-        let leftPressed = false;
-        let rightPressed = false;
+        const held = { jump: new Set(), left: new Set(), right: new Set() };
+        const keyActions = new Map([
+            [' ', 'jump'], ['w', 'jump'], ['arrowup', 'jump'],
+            ['a', 'left'], ['arrowleft', 'left'],
+            ['d', 'right'], ['arrowright', 'right'],
+            ['t', 'toss']
+        ]);
         let lastTime = 0;
 
         // Sound effects
@@ -571,7 +731,6 @@
         });
 
         // DOM Elements
-        const gameContainer = document.getElementById('gameContainer');
         const scoreDisplay = document.getElementById('scoreDisplay');
         const musicToggle = document.getElementById('musicToggle');
         const sfxToggle = document.getElementById('sfxToggle');
@@ -580,6 +739,9 @@
         const finalScoreDisplay = document.getElementById('finalScore');
         const highScoreGameOver = document.getElementById('highScore');
         const restartButton = document.getElementById('restartButton');
+        const controls = document.getElementById('controls');
+        const scoreForm = document.getElementById('scoreForm');
+        const nameInput = document.getElementById('playerName');
         const tossButton = document.getElementById('tossButton');
         const jumpButton = document.getElementById('jumpButton');
         const instructions = document.getElementById('instructions');
@@ -668,9 +830,9 @@
         function generateObstacle() {
             const obstacle = document.createElement('div');
             obstacle.className = 'obstacle';
-            obstacle.style.left = window.innerWidth + 'px';
+            obstacle.style.left = fieldWidth + 'px';
             gameContainer.appendChild(obstacle);
-            obstacles.push({ element: obstacle, x: window.innerWidth });
+            obstacles.push({ element: obstacle, x: fieldWidth });
         }
 
         // Generate target with adjusted positions
@@ -679,8 +841,8 @@
             target.className = 'target';
             let targetY;
             if (Math.random() < 0.2) {
-                const minY = window.innerHeight - 400;
-                const maxY = window.innerHeight - 300;
+                const minY = fieldHeight - 400;
+                const maxY = fieldHeight - 300;
                 targetY = minY + Math.random() * (maxY - minY);
             } else {
                 const minY = 150; // Adjusted from 100
@@ -688,9 +850,9 @@
                 targetY = minY + Math.random() * (maxY - minY);
             }
             target.style.top = targetY + 'px';
-            target.style.left = window.innerWidth + 'px';
+            target.style.left = fieldWidth + 'px';
             gameContainer.appendChild(target);
-            targets.push({ element: target, x: window.innerWidth, y: targetY });
+            targets.push({ element: target, x: fieldWidth, y: targetY });
         }
 
         // Spawn power-up (orb)
@@ -698,13 +860,13 @@
             if (!powerUp.exists) {
                 powerUp.element = document.createElement('div');
                 powerUp.element.className = 'powerUp';
-                powerUp.element.style.left = window.innerWidth + 'px';
-                const minY = window.innerHeight - 400;
-                const maxY = window.innerHeight - 300;
+                powerUp.element.style.left = fieldWidth + 'px';
+                const minY = fieldHeight - 400;
+                const maxY = fieldHeight - 300;
                 const powerUpY = minY + Math.random() * (maxY - minY);
                 powerUp.element.style.top = powerUpY + 'px';
                 gameContainer.appendChild(powerUp.element);
-                powerUp.x = window.innerWidth;
+                powerUp.x = fieldWidth;
                 powerUp.y = powerUpY;
                 powerUp.exists = true;
             }
@@ -735,17 +897,29 @@
             }
         }
 
+        function clearControls() {
+            for (const inputs of Object.values(held)) inputs.clear();
+        }
+
+        function showPlayControls(playing) {
+            controls.hidden = !playing;
+            gameContainer.classList.toggle('playing', playing);
+            clearControls();
+        }
+
         // Reset game state
         function resetGame() {
             gameStarted = false;
             gameOver = false;
+            showPlayControls(false);
             score = 0;
             playerJumping = false;
             playerY = initialY;
-            playerX = window.innerWidth / 2;
+            playerX = fieldWidth / 2;
             playerVx = 0;
             player.style.top = initialY + 'px';
             player.style.left = playerX + 'px';
+            playerShadow.style.left = playerX + 'px';
             obstacles.forEach(ob => ob.element.remove());
             targets.forEach(t => t.element.remove());
             projectiles.forEach(p => p.element.remove());
@@ -766,34 +940,51 @@
             player.style.filter = 'none';
         }
 
-        // End game
+        function saveScore(name) {
+            leaderboard.push({ name, score });
+            leaderboard.sort((a, b) => b.score - a.score);
+            leaderboard = leaderboard.slice(0, 5);
+            localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
+            updateLeaderboardDisplay();
+        }
+
+        function finishScore() {
+            if (scoreForm.hidden) return;
+            const name = nameInput.value.trim() || 'Player';
+            sessionStorage.setItem('playerName', name);
+            scoreForm.hidden = true;
+            saveScore(name);
+        }
+
         function endGame() {
+            if (gameOver) return;
             gameOver = true;
+            showPlayControls(false);
             cancelAnimationFrame(animationFrame);
             finalScoreDisplay.textContent = 'Your score: ' + score;
             if (leaderboard.length < 5 || score > leaderboard[leaderboard.length - 1].score) {
-                let name = sessionStorage.getItem('playerName');
-                if (!name) {
-                    name = prompt("You made it to the top 5! Enter your name:", "Player") || "Player";
-                    sessionStorage.setItem('playerName', name);
+                const name = sessionStorage.getItem('playerName');
+                if (name) {
+                    saveScore(name);
+                } else {
+                    scoreForm.reset();
+                    scoreForm.hidden = false;
                 }
-                leaderboard.push({ name, score });
-                leaderboard.sort((a, b) => b.score - a.score);
-                leaderboard = leaderboard.slice(0, 5);
-                localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
             }
-            updateLeaderboardDisplay();
             gameOverScreen.style.display = 'block';
             playSfx(obstacleHitSound);
         }
 
-        // Update leaderboard display
         function updateLeaderboardDisplay() {
-            const leaderboardHTML = leaderboard.length > 0 ?
-                "<p>Leaderboard:</p>" + leaderboard.map((entry, i) => `<p>${i + 1}. ${entry.name}: ${entry.score}</p>`).join('') :
-                "";
-            leaderBoardDisplay.innerHTML = leaderboardHTML;
-            leaderBoardDisplayGameOver.innerHTML = leaderboardHTML;
+            const entries = leaderboard.map((entry, i) => `${i + 1}. ${entry.name}: ${entry.score}`);
+            const lines = entries.length ? ['Leaderboard:', ...entries] : [];
+            for (const display of [leaderBoardDisplay, leaderBoardDisplayGameOver]) {
+                display.replaceChildren(...lines.map(text => {
+                    const line = document.createElement('p');
+                    line.textContent = text;
+                    return line;
+                }));
+            }
         }
 
         // Spawn particle
@@ -851,6 +1042,9 @@
 
             // Update player jump and air control
             if (playerJumping) {
+                const jumpButtonPressed = held.jump.size > 0;
+                const leftPressed = held.left.size > 0;
+                const rightPressed = held.right.size > 0;
                 let currentGravity = gravity;
                 if (jumpButtonPressed && jumpHoldTime < 0.3) {
                     currentGravity *= 0.4;
@@ -869,7 +1063,7 @@
                     playerVx *= 0.95; // Gradual slowdown when no input
                 }
                 playerX += playerVx;
-                playerX = Math.max(20, Math.min(window.innerWidth - 20, playerX)); // Keep player within bounds
+                playerX = Math.max(20, Math.min(fieldWidth - 20, playerX)); // Keep player within bounds
 
                 if (nextY >= initialY) {
                     playerY = initialY;
@@ -964,7 +1158,7 @@
                 const playerBottom = playerY + 60;
                 const obstacleLeft = ob.x - 30;
                 const obstacleRight = ob.x + 80;
-                const obstacleTop = window.innerHeight - 120 - 50;
+                const obstacleTop = fieldHeight - groundHeight - 50;
                 if (playerLeft < obstacleRight && playerRight > obstacleLeft && playerBottom > obstacleTop) {
                     endGame();
                 }
@@ -985,7 +1179,7 @@
                 proj.y += proj.vy;
                 proj.vy += gravity;
                 proj.element.style.top = proj.y + 'px';
-                if (proj.y > window.innerHeight || proj.y < 0) {
+                if (proj.y > fieldHeight || proj.y < 0) {
                     proj.element.remove();
                     projectiles.splice(pIndex, 1);
                     return;
@@ -1040,62 +1234,84 @@
             animationFrame = requestAnimationFrame(gameLoop);
         }
 
-        // Event listeners
-        jumpButton.addEventListener('mousedown', () => {
-            jumpButtonPressed = true;
-            if (!playerJumping && !gameOver && gameStarted) jump();
+        function bindHold(button, action) {
+            button.addEventListener('pointerdown', event => {
+                if (event.button !== 0 || !gameStarted || gameOver) return;
+                button.setPointerCapture(event.pointerId);
+                held[action].add(event.pointerId);
+                if (action === 'jump') jump();
+            });
+
+            for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+                button.addEventListener(type, event => held[action].delete(event.pointerId));
+            }
+        }
+
+        bindHold(jumpButton, 'jump');
+        bindHold(document.getElementById('leftButton'), 'left');
+        bindHold(document.getElementById('rightButton'), 'right');
+        jumpButton.addEventListener('click', event => {
+            if (event.detail === 0) jump();
         });
-        jumpButton.addEventListener('mouseup', () => jumpButtonPressed = false);
         tossButton.addEventListener('click', toss);
 
-        document.addEventListener('keydown', (e) => {
-            if (!gameOver && gameStarted) {
-                if (e.key === ' ' || e.key === 'w' || e.key === 'ArrowUp') {
-                    jumpButtonPressed = true;
-                    jump();
-                } else if (e.key === 't' || e.key === 'T') {
-                    toss();
-                } else if (e.key === 'a' || e.key === 'ArrowLeft') {
-                    leftPressed = true;
-                } else if (e.key === 'd' || e.key === 'ArrowRight') {
-                    rightPressed = true;
-                }
+        document.addEventListener('keydown', event => {
+            const action = keyActions.get(event.key.toLowerCase());
+            if (!gameStarted || gameOver || !action || event.metaKey || event.ctrlKey || event.altKey) return;
+            event.preventDefault();
+            if (action === 'toss') {
+                toss();
+            } else {
+                held[action].add(event.code);
+                if (action === 'jump') jump();
             }
         });
 
-        document.addEventListener('keyup', (e) => {
-            if (e.key === ' ' || e.key === 'w' || e.key === 'ArrowUp') {
-                jumpButtonPressed = false;
-            } else if (e.key === 'a' || e.key === 'ArrowLeft') {
-                leftPressed = false;
-            } else if (e.key === 'd' || e.key === 'ArrowRight') {
-                rightPressed = false;
-            }
+        document.addEventListener('keyup', event => {
+            const action = keyActions.get(event.key.toLowerCase());
+            if (held[action]) held[action].delete(event.code);
+        });
+        window.addEventListener('blur', clearControls);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) clearControls();
         });
 
-        // Start game
-        startButton.addEventListener('click', () => {
+        new ResizeObserver(() => {
+            fieldWidth = gameContainer.clientWidth;
+            fieldHeight = gameContainer.clientHeight;
+            const nextInitialY = fieldHeight - groundHeight - playerHeight;
+            playerY += nextInitialY - initialY;
+            initialY = nextInitialY;
+            playerX = gameStarted && !gameOver
+                ? Math.max(20, Math.min(fieldWidth - 20, playerX))
+                : fieldWidth / 2;
+            player.style.top = playerY + 'px';
+            player.style.left = playerX + 'px';
+            playerShadow.style.left = playerX + 'px';
+        }).observe(gameContainer);
+
+        function startRun() {
+            finishScore();
             instructions.style.display = 'none';
-            resetGame();
-            gameStarted = true;
-            lastTime = performance.now();
-            animationFrame = requestAnimationFrame(gameLoop);
-        });
-
-        // Restart game
-        restartButton.addEventListener('click', () => {
-            resetGame();
-            gameStarted = true;
             gameOverScreen.style.display = 'none';
+            resetGame();
+            gameStarted = true;
+            showPlayControls(true);
             lastTime = performance.now();
             animationFrame = requestAnimationFrame(gameLoop);
-        });
+        }
 
-        // Main menu
+        startButton.addEventListener('click', startRun);
+        restartButton.addEventListener('click', startRun);
         document.getElementById('mainMenuButton').addEventListener('click', () => {
+            finishScore();
             gameOverScreen.style.display = 'none';
             instructions.style.display = 'block';
             resetGame();
+        });
+        scoreForm.addEventListener('submit', event => {
+            event.preventDefault();
+            finishScore();
         });
 
         // Initialize game
