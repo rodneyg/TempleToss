@@ -22,6 +22,35 @@ after(async () => {
     server?.close();
 });
 
+test('The game starts and accepts a toss when external audio and stylesheets fail', async () => {
+    const context = await browser.newContext();
+    try {
+        const gameOrigin = new URL(url).origin;
+        const isExternal = requestUrl => new URL(requestUrl).origin !== gameOrigin;
+        await context.route(isExternal, route => route.abort('failed'));
+
+        const page = await context.newPage();
+        const failedAssets = new Set();
+        const pageErrors = [];
+        page.on('requestfailed', request => {
+            if (isExternal(request.url())) failedAssets.add(request.resourceType());
+        });
+        page.on('pageerror', error => pageErrors.push(error));
+
+        await openGame(page, url);
+        await page.locator('#startButton').click();
+        await page.locator('#controls').waitFor({ timeout: 5000 });
+        await page.locator('#tossButton').click();
+        await page.locator('.projectile').first().waitFor({ timeout: 5000 });
+
+        assert.ok(failedAssets.has('media'), 'Expected an external audio request to fail');
+        assert.ok(failedAssets.has('stylesheet'), 'Expected an external stylesheet request to fail');
+        assert.deepEqual(pageErrors, [], 'Asset failures must not cause uncaught errors');
+    } finally {
+        await context.close();
+    }
+});
+
 for (const viewport of phoneViewports) {
     test(`Touch can play and return to the menu at ${viewport.width}x${viewport.height}`, async () => {
         await runTouchLoop(browser, url, viewport);
