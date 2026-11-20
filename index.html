@@ -706,7 +706,20 @@
         let gameSpeed = 5;
         let canToss = true;
         let animationFrame = null;
-        let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
+        function readStoredJSON(key) {
+            const value = localStorage.getItem(key);
+            try {
+                return JSON.parse(value);
+            } catch (error) {
+                if (error instanceof SyntaxError) return null;
+                throw error;
+            }
+        }
+
+        const savedLeaderboard = readStoredJSON('leaderboard');
+        let leaderboard = Array.isArray(savedLeaderboard)
+            ? savedLeaderboard.filter(entry => typeof entry?.name === 'string' && Number.isFinite(entry.score))
+            : [];
         const held = { jump: new Set(), left: new Set(), right: new Set() };
         const keyActions = new Map([
             [' ', 'jump'], ['w', 'jump'], ['arrowup', 'jump'],
@@ -726,8 +739,8 @@
         // Background music
         const backgroundMusic = new Audio('https://www.bensound.com/bensound-music/bensound-adventure.mp3');
         backgroundMusic.loop = true;
-        let isMusicOn = JSON.parse(localStorage.getItem('musicOn')) !== false; // Default to on
-        let isSfxOn = JSON.parse(localStorage.getItem('sfxOn')) !== false; // Default to on
+        let isMusicOn = readStoredJSON('musicOn') !== false; // Default to on
+        let isSfxOn = readStoredJSON('sfxOn') !== false; // Default to on
 
         // Preload sounds
         const sounds = [jumpSound, tossSound, orbCollectSound, targetHitSound, obstacleHitSound, backgroundMusic];
