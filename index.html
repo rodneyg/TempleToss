@@ -1149,15 +1149,17 @@
             updateSuperJump(deltaTime);
 
             // Update obstacles
-            obstacles.forEach((ob, index) => {
+            for (let index = 0; index < obstacles.length; index++) {
+                const ob = obstacles[index];
                 ob.x -= gameSpeed;
                 ob.element.style.left = ob.x + 'px';
                 if (ob.x < -50) {
                     ob.element.remove();
                     obstacles.splice(index, 1);
+                    index--;
                     score += 5;
                     showFloatingScore(playerX, playerY - 20, 5);
-                    return;
+                    continue;
                 }
                 const playerLeft = playerX - 20;
                 const playerRight = playerX + 20;
@@ -1168,27 +1170,31 @@
                 if (playerLeft < obstacleRight && playerRight > obstacleLeft && playerBottom > obstacleTop) {
                     endGame();
                 }
-            });
+            }
 
             // Update targets
-            targets.forEach((target, index) => {
+            for (let index = 0; index < targets.length; index++) {
+                const target = targets[index];
                 target.x -= gameSpeed;
                 target.element.style.left = target.x + 'px';
                 if (target.x < -50) {
                     target.element.remove();
                     targets.splice(index, 1);
+                    index--;
                 }
-            });
+            }
 
             // Update projectiles
-            projectiles.forEach((proj, pIndex) => {
+            for (let pIndex = 0; pIndex < projectiles.length; pIndex++) {
+                const proj = projectiles[pIndex];
                 proj.y += proj.vy;
                 proj.vy += gravity;
                 proj.element.style.top = proj.y + 'px';
                 if (proj.y > fieldHeight || proj.y < 0) {
                     proj.element.remove();
                     projectiles.splice(pIndex, 1);
-                    return;
+                    pIndex--;
+                    continue;
                 }
                 for (let tIndex = targets.length - 1; tIndex >= 0; tIndex--) {
                     const target = targets[tIndex];
@@ -1205,6 +1211,7 @@
                         const points = superJumpActive ? basePoints * 2 : basePoints;
                         score += points;
                         projectiles.splice(pIndex, 1);
+                        pIndex--;
                         proj.element.remove();
                         targets.splice(tIndex, 1);
                         target.element.remove();
@@ -1213,22 +1220,24 @@
                         break;
                     }
                 }
-            });
+            }
 
             // Update particles
-            particles.forEach((particle, index) => {
+            for (let index = 0; index < particles.length; index++) {
+                const particle = particles[index];
                 particle.x += particle.vx - gameSpeed / 2;
                 particle.y += particle.vy;
                 particle.lifetime -= deltaTime;
                 if (particle.lifetime <= 0) {
                     particle.element.remove();
                     particles.splice(index, 1);
-                    return;
+                    index--;
+                    continue;
                 }
                 particle.element.style.left = particle.x + 'px';
                 particle.element.style.top = particle.y + 'px';
                 particle.element.style.opacity = particle.lifetime;
-            });
+            }
 
             // Update score display
             if (scoreDisplay.textContent !== `Score: ${score}`) {

@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "lint": "node scripts/lint.mjs",
-    "test": "node --test tests/game.test.mjs"
+    "test": "node --test --test-concurrency=1"
   },
   "devDependencies": {
     "playwright": "1.65.1"
