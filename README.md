@@ -48,7 +48,7 @@ The game features a **beautiful temple-themed background**, complete with stars,
 - A **local leaderboard** that stores the **top 5 scores** with player names.
 
 ### Mobile Compatibility:
-- The game is **responsive** and can be played on mobile devices, though touch controls are not yet implemented.
+- Phones show Jump, Toss, and left and right arrow buttons in portrait and landscape.
 
 ## How to Play
 
@@ -58,7 +58,7 @@ Click the **"START GAME"** button to begin.
 ### Controls:
 - **Jump**: Use `Spacebar`, `W`, or the Jump button to leap over obstacles and collect power-ups.
 - **Toss**: Use `T` or the Toss button to throw projectiles at targets.
-- **Move Left/Right**: Use `A/D` or arrow keys to adjust your position mid-air during jumps.
+- **Move Left/Right**: Hold `A/D`, the arrow keys, or an on-screen arrow during a jump. Hold Jump to go higher.
 - **Audio Toggles**:  
   - Click the **speaker icon** (top-right) to mute/unmute background music.  
   - Click the **headphones icon** to mute/unmute sound effects.
@@ -79,7 +79,7 @@ Click the **"START GAME"** button to begin.
 ## Setup
 
 - **Requirements**: A modern web browser (e.g., **Chrome, Firefox, Edge**).
-- **Installation**: No installation required. Simply **open the `temple-toss.html` file** in your browser.
+- **Installation**: No installation required. Simply **open the `index.html` file** in your browser.
 - **Playing the Game**: Click **"START GAME"** to begin. Use the controls to navigate through the temple and score points.
 
 ## Development
@@ -89,6 +89,10 @@ Click the **"START GAME"** button to begin.
 - Utilizes the **requestAnimationFrame API** for smooth animations.
 - Audio is managed via the **Web Audio API**.
 
+### Browser tests:
+
+Run `npm ci` and `npx playwright install chromium`, then run `npm run lint` and `npm test`. The tests cover touch play in both orientations and desktop keyboard and mouse play.
+
 ### Current State:
 - The game includes **core mechanics** such as jumping, tossing, obstacle avoidance, power-up collection, and target hitting.
 - **Visual and audio elements** are implemented, with **toggle options** for user preference.
@@ -97,10 +101,6 @@ Click the **"START GAME"** button to begin.
 ## Future Plans
 
 As the author, I have **ambitious plans** to elevate *Temple Toss* into a world-class game. Here are some features planned for future updates:
-
-### Mobile Compatibility:
-- Implement **touch controls** for jumping and tossing on mobile devices.
-- Optimize **UI elements** for smaller screens.
 
 ### Gameplay Enhancements:
 - Add new **power-ups** (e.g., **speed boosts, shields**) and **obstacles** for variety.
