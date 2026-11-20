@@ -28,7 +28,7 @@ The game features a **beautiful temple-themed background**, complete with stars,
 - **Super Jump**: Activated by collecting yellow orbs, this temporary power-up allows you to jump higher and reach otherwise inaccessible targets.
 
 ### Audio:
-- Music and sound effects have separate toggles. Both default to on.
+- Music and sound effects have separate toggles. Both default to on. Audio files load from external sites, so the game may be silent if those files are unavailable.
 
 ### Visuals:
 - **Temple-themed background** with stars, clouds, and a moving ground pattern.
@@ -48,7 +48,7 @@ The game features a **beautiful temple-themed background**, complete with stars,
 ## How to Play
 
 ### Start the Game:
-Select **Start Game** to begin. After a run, you can select **Play Again** or **Main Menu**. Enter a name and select **Save Score** if the game asks for one.
+Select **Start Game** to begin. After a run, you can select **Play Again** or **Main Menu**. If you earn a spot on the leaderboard, the game reuses the name you entered earlier in the session. If it asks for a name, enter one and select **Save Score**. Leaving the screen also saves a qualifying score. A blank name is saved as **Player**.
 
 ### Controls:
 - **Jump**. Press Space, W, or the up arrow, or use the Jump button. Hold to jump higher.
@@ -105,7 +105,7 @@ As the author, I have **ambitious plans** to elevate *Temple Toss* into a world-
 
 ### Visual and Audio Polish:
 - Enhance **player animations** (e.g., running, tossing).
-- Add **particle effects** for actions like hitting targets or collecting power-ups.
+- Add **particle effects** when players hit targets.
 - Include **thematic sound effects** and voiceovers for key events.
 
 ### Social Sharing:
