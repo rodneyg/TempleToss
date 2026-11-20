@@ -22,6 +22,46 @@ after(async () => {
     server?.close();
 });
 
+test('Game over saves a new high score and shows it after a lower run on reload', async () => {
+    const context = await browser.newContext({ viewport: { width: 1200, height: 800 } });
+    try {
+        const page = await context.newPage();
+        await page.route('**/*', route => route.request().url().startsWith(url) ? route.continue() : route.abort());
+        await openGame(page, url);
+        await page.locator('#startButton').click();
+        await page.evaluate(() => {
+            // Put a target in reach so the game loop awards points without relying on a random spawn.
+            generateTarget();
+            targets[0].x = playerX;
+            targets[0].y = playerY;
+        });
+        await page.waitForFunction(() => document.getElementById('scoreDisplay').textContent === 'Score: 10');
+
+        const collideWithObstacle = async () => {
+            await page.evaluate(() => {
+                generateObstacle();
+                obstacles[0].x = playerX;
+            });
+            await page.locator('#gameOver').waitFor();
+        };
+        const gameOverScores = async () => ({
+            run: await page.locator('#finalScore').innerText(),
+            high: await page.locator('#highScore').innerText(),
+            saved: await page.evaluate(() => localStorage.getItem('templeTossHighScore')),
+        });
+
+        await collideWithObstacle();
+        assert.deepEqual(await gameOverScores(), { run: 'Your score: 10', high: 'High score: 10', saved: '10' });
+
+        await openGame(page, url);
+        await page.locator('#startButton').click();
+        await collideWithObstacle();
+        assert.deepEqual(await gameOverScores(), { run: 'Your score: 0', high: 'High score: 10', saved: '10' });
+    } finally {
+        await context.close();
+    }
+});
+
 for (const viewport of phoneViewports) {
     test(`Touch can play and return to the menu at ${viewport.width}x${viewport.height}`, async () => {
         await runTouchLoop(browser, url, viewport);
