@@ -50,7 +50,7 @@ async function sendTouch(cdp, type, touchPoints) {
     await cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
 }
 
-async function jumpAndSteer(page, cdp, direction) {
+export async function jumpAndSteer(page, cdp, direction) {
     const start = await playerPosition(page);
     const arrow = { ...await centerOf(page, `#${direction}Button`), id: 1 };
     const jump = { ...await centerOf(page, '#jumpButton'), id: 2 };
