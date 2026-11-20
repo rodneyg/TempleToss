@@ -127,8 +127,7 @@ As the author, I have **ambitious plans** to elevate *Temple Toss* into a world-
 ## Credits
 
 - **Game Design and Development**: *Rodney Gainous Jr.*
-- **Music**: *"Adventure" by Bensound*
-- **Sound Effects**: *SoundJay*
+- **Music and sound effects**: Synthesized in the browser with Web Audio
 - **Icons**: *Font Awesome*
 
 ## Feedback and Issues
