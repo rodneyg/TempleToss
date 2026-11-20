@@ -89,3 +89,94 @@ test('Desktop supports keyboard menus, jump, air control, toss and existing mous
         await context.close();
     }
 });
+
+async function openLeaderboardGame(t, entries = []) {
+    const context = await browser.newContext();
+    t.after(() => context.close());
+    await context.route('**/*', route => {
+        return route.request().url().startsWith(url) ? route.continue() : route.abort();
+    });
+    const page = await context.newPage();
+    await page.addInitScript(initialEntries => {
+        if (localStorage.getItem('leaderboard') === null) {
+            localStorage.setItem('leaderboard', JSON.stringify(initialEntries));
+        }
+    }, entries);
+    await openGame(page, url);
+    return page;
+}
+
+async function finishRun(page, finalScore, startButton = '#startButton') {
+    await page.locator(startButton).click();
+    // Set the final score directly so these tests do not depend on obstacle timing.
+    await page.evaluate(value => {
+        score = value;
+        endGame();
+    }, finalScore);
+    await page.locator('#gameOver').waitFor();
+}
+
+async function assertLeaderboard(page, entries) {
+    assert.deepEqual(
+        await page.evaluate(() => JSON.parse(localStorage.getItem('leaderboard'))),
+        entries
+    );
+    const lines = entries.map(({ name, score }, index) => `${index + 1}. ${name}: ${score}`);
+    for (const display of ['#leaderboardDisplay', '#leaderboardDisplayGameOver']) {
+        assert.deepEqual(await page.locator(`${display} p`).allTextContents(), ['Leaderboard:', ...lines]);
+    }
+}
+
+test('Leaderboard uses Player for a whitespace-only name', async t => {
+    const page = await openLeaderboardGame(t);
+    await finishRun(page, 20);
+    await page.getByRole('textbox', { name: 'Player name' }).fill('   ');
+    await page.locator('#scoreForm button').click();
+    await assertLeaderboard(page, [{ name: 'Player', score: 20 }]);
+});
+
+test('Leaderboard saves at most 24 characters from typed names', async t => {
+    const page = await openLeaderboardGame(t);
+    await finishRun(page, 20);
+    const input = page.getByRole('textbox', { name: 'Player name' });
+    await input.pressSequentially('abcdefghijklmnopqrstuvwxyz');
+    assert.equal(await input.inputValue(), 'abcdefghijklmnopqrstuvwx');
+    await page.locator('#scoreForm button').click();
+    await assertLeaderboard(page, [{ name: 'abcdefghijklmnopqrstuvwx', score: 20 }]);
+});
+
+test('Leaderboard trims names, renders markup literally, and reuses the session name', async t => {
+    const page = await openLeaderboardGame(t);
+    await finishRun(page, 20);
+    const name = '<b>Toss</b>';
+    await page.getByRole('textbox', { name: 'Player name' }).fill(`  ${name}  `);
+    await page.locator('#scoreForm button').click();
+    await assertLeaderboard(page, [{ name, score: 20 }]);
+    assert.equal(await page.locator('#leaderboardDisplay b, #leaderboardDisplayGameOver b').count(), 0);
+
+    await finishRun(page, 30, '#restartButton');
+    await page.locator('#scoreForm').waitFor({ state: 'hidden' });
+    await assertLeaderboard(page, [{ name, score: 30 }, { name, score: 20 }]);
+});
+
+test('Leaderboard keeps the five highest scores and restores their order after reload', async t => {
+    const entries = [
+        { name: 'Avery', score: 90 },
+        { name: 'Dana', score: 70 },
+        { name: 'Ellis', score: 50 },
+        { name: 'Kai', score: 30 },
+        { name: 'Sky', score: 10 },
+    ];
+    const page = await openLeaderboardGame(t, entries);
+    await assertLeaderboard(page, entries);
+
+    await finishRun(page, 60);
+    await page.getByRole('textbox', { name: 'Player name' }).fill('Reese');
+    await page.locator('#scoreForm button').click();
+    const ranked = [entries[0], entries[1], { name: 'Reese', score: 60 }, entries[2], entries[3]];
+    await assertLeaderboard(page, ranked);
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#loadingScreen').waitFor({ state: 'hidden' });
+    await assertLeaderboard(page, ranked);
+});
