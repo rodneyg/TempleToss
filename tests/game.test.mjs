@@ -39,9 +39,13 @@ test('Rotating a phone keeps the player on the ground and all four controls reac
             const game = document.getElementById('gameContainer');
             return parseFloat(document.getElementById('player').style.top) === game.clientHeight - 180;
         });
-        for (const selector of ['#jumpButton', '#tossButton', '#leftButton', '#rightButton']) {
-            await centerOf(page, selector);
-        }
+        const jump = await centerOf(page, '#jumpButton');
+        const toss = await centerOf(page, '#tossButton');
+        const left = await centerOf(page, '#leftButton');
+        const right = await centerOf(page, '#rightButton');
+        const { width } = page.viewportSize();
+        assert.ok(right.x - left.x <= 78 && right.x < width / 2);
+        assert.ok(toss.x - jump.x <= 78 && jump.x > width / 2);
         const start = await playerPosition(page);
         await tap(page, '#jumpButton');
         await page.waitForFunction(y => parseFloat(document.getElementById('player').style.top) < y - 10, start.y);

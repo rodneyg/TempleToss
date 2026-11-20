@@ -241,6 +241,10 @@
             display: none;
         }
 
+        #actionControls {
+            display: contents;
+        }
+
         .controlBtn {
             border: 0;
             font-family: inherit;
@@ -501,7 +505,7 @@
                 gap: 12px;
             }
 
-            #airControls {
+            #airControls, #actionControls {
                 display: flex;
                 gap: 8px;
             }
@@ -596,14 +600,16 @@
                 <button type="button" id="leftButton" class="controlBtn" aria-label="Move left">←</button>
                 <button type="button" id="rightButton" class="controlBtn" aria-label="Move right">→</button>
             </div>
-            <button type="button" id="jumpButton" class="controlBtn">
-                JUMP
-                <span class="keyHint">Space / W</span>
-            </button>
-            <button type="button" id="tossButton" class="controlBtn">
-                TOSS
-                <span class="keyHint">T</span>
-            </button>
+            <div id="actionControls">
+                <button type="button" id="jumpButton" class="controlBtn">
+                    JUMP
+                    <span class="keyHint">Space / W</span>
+                </button>
+                <button type="button" id="tossButton" class="controlBtn">
+                    TOSS
+                    <span class="keyHint">T</span>
+                </button>
+            </div>
         </div>
 
         <div id="instructions">
