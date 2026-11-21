@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 
 export const phoneViewports = [
     { width: 375, height: 812 },
+    { width: 320, height: 568 },
+    { width: 375, height: 667 },
     { width: 390, height: 844 },
     { width: 812, height: 375 },
     { width: 844, height: 390 },
@@ -126,12 +128,34 @@ async function verifyGesturesStayInGame(page, cdp) {
     assert.ok(await page.locator('#controls').isVisible(), 'Play area gestures interrupted the run');
 }
 
+async function verifyGameFits(page) {
+    const { width, height } = page.viewportSize();
+    const game = await page.locator('#gameContainer').boundingBox();
+    assert.deepEqual(game, { x: 0, y: 0, width, height });
+    const pageWidths = await page.evaluate(() => [
+        document.documentElement.scrollWidth,
+        document.body.scrollWidth,
+        window.visualViewport.width,
+    ]);
+    assert.deepEqual(pageWidths, [width, width, width], 'The game overflows the phone viewport');
+}
+
+async function startTouchRun(page, button) {
+    await tap(page, button);
+    await page.locator('#controls').waitFor();
+    await page.evaluate(() => {
+        // End the run with a test obstacle after the touch interactions.
+        obstacleElapsed = -Infinity;
+    });
+}
+
 async function collideWithObstacle(page) {
     await page.evaluate(() => {
         generateObstacle();
         obstacles.at(-1).x = playerX;
         window.stepTouchLoop();
     });
+    await page.locator('#gameOver').waitFor({ timeout: 10000 });
 }
 
 export async function runTouchLoop(browser, url, viewport, { screenshot, preparePage } = {}) {
@@ -142,13 +166,13 @@ export async function runTouchLoop(browser, url, viewport, { screenshot, prepare
         await useFixedGameFrames(page);
         const cdp = await context.newCDPSession(page);
         await openGame(page, url);
+        await verifyGameFits(page);
         const before = await viewportPosition(page);
         assert.deepEqual(before, { x: 0, y: 0, scale: 1, visualX: 0, visualY: 0 });
         const controls = page.locator('#controls');
-        const gameOver = page.locator('#gameOver');
 
-        await tap(page, '#startButton');
-        await controls.waitFor();
+        await startTouchRun(page, '#startButton');
+        await verifyGameFits(page);
         await jumpAndSteer(page, cdp, 'right');
         await tap(page, '#tossButton');
         await page.locator('.projectile').first().waitFor({ timeout: 1200 });
@@ -157,17 +181,13 @@ export async function runTouchLoop(browser, url, viewport, { screenshot, prepare
         if (screenshot) await page.screenshot({ path: screenshot });
 
         await collideWithObstacle(page);
-
-        await gameOver.waitFor({ timeout: 10000 });
         await controls.waitFor({ state: 'hidden' });
         await tap(page, '#scoreForm button');
         await page.locator('#leaderboardDisplayGameOver').getByText(/1\. Player:/).waitFor();
 
-        await tap(page, '#restartButton');
-        await controls.waitFor();
+        await startTouchRun(page, '#restartButton');
         await jumpAndSteer(page, cdp, 'left');
         await collideWithObstacle(page);
-        await gameOver.waitFor({ timeout: 10000 });
         await tap(page, '#mainMenuButton');
         await page.locator('#startButton').waitFor();
 

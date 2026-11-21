@@ -315,6 +315,24 @@ test('The mobile leaderboard fits a full-length name at 320x568', async () => {
     }
 });
 
+test('The loading title fits on one line at 320px with fallback fonts', async () => {
+    const context = await browser.newContext(compactPhone);
+    try {
+        const page = await context.newPage();
+        await page.route('**/*', route => route.request().url() === url ? route.continue() : route.abort());
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        const lines = await page.locator('#loadingTitle').evaluate(title => {
+            const text = document.createRange();
+            text.selectNodeContents(title);
+            return [...text.getClientRects()].map(rect => [rect.left, rect.right]);
+        });
+        assert.equal(lines.length, 1);
+        assert.ok(lines[0][0] >= 0 && lines[0][1] <= 320);
+    } finally {
+        await context.close();
+    }
+});
+
 test('Rotating a phone keeps the player on the ground and all four controls reachable', async () => {
     const context = await browser.newContext({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
     try {
