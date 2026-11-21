@@ -62,6 +62,76 @@ test('Game over saves a new high score and shows it after a lower run on reload'
     }
 });
 
+const savedLeaderboard = JSON.stringify([{ name: 'Ada', score: 42 }]);
+const savedLeaderboardText = 'Leaderboard:1. Ada: 42';
+
+const startupStorageCases = [
+    { name: 'missing storage', storage: {} },
+    { name: 'malformed leaderboard JSON', storage: { leaderboard: '{' } },
+    { name: 'a non-array leaderboard', storage: { leaderboard: '{"name":"Ada","score":42}' } },
+    {
+        name: 'invalid leaderboard entries alongside a valid score',
+        storage: { leaderboard: '[null,{"name":"Missing score"},{"name":1,"score":99},{"name":"String score","score":"99"},{"name":"Ada","score":42}]' },
+        leaderboardText: savedLeaderboardText,
+    },
+    {
+        name: 'malformed music JSON',
+        storage: { leaderboard: savedLeaderboard, musicOn: '{', sfxOn: 'false' },
+        leaderboardText: savedLeaderboardText,
+        sfxOn: false,
+    },
+    {
+        name: 'malformed sound effects JSON',
+        storage: { leaderboard: savedLeaderboard, musicOn: 'false', sfxOn: '[' },
+        leaderboardText: savedLeaderboardText,
+        musicOn: false,
+    },
+    {
+        name: 'non-boolean audio preferences',
+        storage: { musicOn: '"false"', sfxOn: '0' },
+    },
+    {
+        name: 'valid saved scores and muted audio',
+        storage: { leaderboard: savedLeaderboard, musicOn: 'false', sfxOn: 'false' },
+        leaderboardText: savedLeaderboardText,
+        musicOn: false,
+        sfxOn: false,
+    },
+];
+
+for (const {
+    name, storage, leaderboardText = '', musicOn = true, sfxOn = true,
+} of startupStorageCases) {
+    test(`Startup handles ${name}`, async t => {
+        const context = await browser.newContext();
+        const pageErrors = [];
+        try {
+            await context.route('**/*', route =>
+                route.request().url() === url ? route.continue() : route.abort());
+            await context.addInitScript(entries => {
+                for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value);
+            }, storage);
+
+            const page = await context.newPage();
+            page.on('pageerror', error => pageErrors.push(error.message));
+            await page.goto(url, { waitUntil: 'domcontentloaded' });
+            await page.locator('#loadingScreen').waitFor({ state: 'hidden', timeout: 6000 });
+            assert.deepEqual(pageErrors, []);
+            assert.equal(await page.locator('#leaderboardDisplay').textContent(), leaderboardText);
+            assert.equal(await page.locator('#musicToggle i').evaluate(icon => icon.classList.contains('fa-volume-up')), musicOn);
+            assert.equal(await page.locator('#sfxToggle i').evaluate(icon => icon.style.textDecoration !== 'line-through'), sfxOn);
+
+            await page.getByRole('button', { name: 'START GAME' }).click();
+            await page.locator('#instructions').waitFor({ state: 'hidden', timeout: 2000 });
+            await page.locator('#jumpButton').waitFor({ timeout: 2000 });
+            assert.deepEqual(pageErrors, []);
+        } finally {
+            if (pageErrors.length) t.diagnostic(`Uncaught page errors: ${pageErrors.join('; ')}`);
+            await context.close();
+        }
+    });
+}
+
 for (const viewport of phoneViewports) {
     test(`Touch can play and return to the menu at ${viewport.width}x${viewport.height}`, async () => {
         await runTouchLoop(browser, url, viewport);
