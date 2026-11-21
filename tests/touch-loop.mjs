@@ -50,7 +50,7 @@ async function sendTouch(cdp, type, touchPoints) {
     await cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
 }
 
-async function jumpAndSteer(page, cdp, direction) {
+export async function jumpAndSteer(page, cdp, direction) {
     const start = await playerPosition(page);
     const arrow = { ...await centerOf(page, `#${direction}Button`), id: 1 };
     const jump = { ...await centerOf(page, '#jumpButton'), id: 2 };
@@ -76,14 +76,21 @@ async function verifyGesturesStayInGame(page, cdp) {
     const y = Math.round(height / 2);
 
     await sendTouch(cdp, 'touchStart', [{ x, y, id: 1 }]);
-    await sendTouch(cdp, 'touchMove', [{ x, y: y - 100, id: 1 }]);
+    await sendTouch(cdp, 'touchMove', [{ x, y: y + 100, id: 1 }]);
     await sendTouch(cdp, 'touchEnd', []);
 
     await sendTouch(cdp, 'touchStart', [{ x: x - 24, y, id: 1 }, { x: x + 24, y, id: 2 }]);
     await sendTouch(cdp, 'touchMove', [{ x: x - 110, y, id: 1 }, { x: x + 110, y, id: 2 }]);
     await sendTouch(cdp, 'touchEnd', []);
 
-    assert.deepEqual(await viewportPosition(page), before, 'Swipe or pinch moved the viewport');
+    await sendTouch(cdp, 'touchStart', [{ x, y, id: 1 }]);
+    await sendTouch(cdp, 'touchEnd', []);
+    await sendTouch(cdp, 'touchStart', [{ x, y, id: 1 }]);
+    await sendTouch(cdp, 'touchEnd', []);
+    // Let any browser zoom animation or reload start before checking the viewport.
+    await page.waitForTimeout(350);
+    assert.deepEqual(await viewportPosition(page), before, 'A downward swipe, pinch or double tap moved the viewport');
+    assert.ok(await page.locator('#controls').isVisible(), 'Play area gestures interrupted the run');
 }
 
 export async function runTouchLoop(browser, url, viewport, { screenshot, preparePage } = {}) {

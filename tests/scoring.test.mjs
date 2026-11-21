@@ -66,8 +66,10 @@ async function scoringPage(t) {
     await page.keyboard.press('Enter');
     await page.evaluate(() => {
         // The tests set up specific obstacles and targets. The orb uses its normal spawn timer.
-        obstacleInterval = Infinity;
-        targetInterval = Infinity;
+        obstacleElapsed = -Infinity;
+        targetElapsed = -Infinity;
+        // The first frame initializes the active play clock.
+        stepGame(0);
     });
     return page;
 }

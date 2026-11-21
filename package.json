@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "lint": "node scripts/lint.mjs",
-    "test": "node --test --test-concurrency=1"
+    "test": "node --test --test-concurrency=1 tests/game.test.mjs tests/scoring.test.mjs",
+    "test:e2e": "node --test tests/touch.e2e.mjs"
   },
   "devDependencies": {
     "playwright": "1.65.1"
