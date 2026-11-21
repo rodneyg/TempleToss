@@ -50,13 +50,20 @@ async function sendTouch(cdp, type, touchPoints) {
     await cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
 }
 
-export async function jumpAndSteer(page, cdp, direction) {
+async function advanceFrames(page, count) {
+    await page.evaluate(count => {
+        for (let frame = 0; frame < count; frame++) window.stepTouchLoop();
+    }, count);
+}
+
+export async function jumpAndSteer(page, cdp, direction, { fixedFrames = false } = {}) {
     const start = await playerPosition(page);
     const arrow = { ...await centerOf(page, `#${direction}Button`), id: 1 };
     const jump = { ...await centerOf(page, '#jumpButton'), id: 2 };
     await sendTouch(cdp, 'touchStart', [arrow]);
     await sendTouch(cdp, 'touchStart', [arrow, jump]);
     try {
+        if (fixedFrames) await advanceFrames(page, 8);
         await page.waitForFunction(({ start, direction }) => {
             const { left, top } = document.getElementById('player').style;
             const dx = parseFloat(left) - start.x;
@@ -65,6 +72,7 @@ export async function jumpAndSteer(page, cdp, direction) {
     } finally {
         await sendTouch(cdp, 'touchEnd', []);
     }
+    if (fixedFrames) await advanceFrames(page, 85);
     await page.waitForFunction(y => parseFloat(document.getElementById('player').style.top) === y,
         start.y, { timeout: 1800 });
 }
@@ -93,11 +101,41 @@ async function verifyGesturesStayInGame(page, cdp) {
     assert.ok(await page.locator('#controls').isVisible(), 'Play area gestures interrupted the run');
 }
 
+async function collideWithObstacle(page) {
+    await page.evaluate(() => {
+        generateObstacle();
+        obstacles.at(-1).x = playerX;
+        window.stepTouchLoop();
+    });
+}
+
 export async function runTouchLoop(browser, url, viewport, { screenshot, preparePage } = {}) {
     const context = await browser.newContext({ viewport, hasTouch: true, isMobile: true });
     try {
         const page = await context.newPage();
         await preparePage?.(page);
+        await page.addInitScript(() => {
+            const requestFrame = window.requestAnimationFrame.bind(window);
+            const cancelFrame = window.cancelAnimationFrame.bind(window);
+            let callback;
+            let now = 0;
+            // Leave browser and Playwright frames on wall time. Step only gameplay.
+            window.requestAnimationFrame = frame => {
+                if (frame.name !== 'gameLoop') return requestFrame(frame);
+                callback = frame;
+                return -1;
+            };
+            window.cancelAnimationFrame = id => {
+                if (id === -1) callback = undefined;
+                else cancelFrame(id);
+            };
+            window.stepTouchLoop = () => {
+                now += 1000 / 60;
+                const frame = callback;
+                callback = undefined;
+                frame?.(now);
+            };
+        });
         const cdp = await context.newCDPSession(page);
         await openGame(page, url);
         const before = await viewportPosition(page);
@@ -107,12 +145,14 @@ export async function runTouchLoop(browser, url, viewport, { screenshot, prepare
 
         await tap(page, '#startButton');
         await controls.waitFor();
-        await jumpAndSteer(page, cdp, 'right');
+        await jumpAndSteer(page, cdp, 'right', { fixedFrames: true });
         await tap(page, '#tossButton');
         await page.locator('.projectile').first().waitFor({ timeout: 1200 });
         await verifyGesturesStayInGame(page, cdp);
 
         if (screenshot) await page.screenshot({ path: screenshot });
+
+        await collideWithObstacle(page);
 
         await gameOver.waitFor({ timeout: 10000 });
         await controls.waitFor({ state: 'hidden' });
@@ -121,7 +161,8 @@ export async function runTouchLoop(browser, url, viewport, { screenshot, prepare
 
         await tap(page, '#restartButton');
         await controls.waitFor();
-        await jumpAndSteer(page, cdp, 'left');
+        await jumpAndSteer(page, cdp, 'left', { fixedFrames: true });
+        await collideWithObstacle(page);
         await gameOver.waitFor({ timeout: 10000 });
         await tap(page, '#mainMenuButton');
         await page.locator('#startButton').waitFor();
