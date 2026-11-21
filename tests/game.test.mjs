@@ -761,6 +761,38 @@ async function assertLeaderboard(page, entries) {
     }
 }
 
+test('Denied score writes leave game over, score entry, and restart usable', async t => {
+    const page = await openLeaderboardGame(t);
+    await page.evaluate(() => {
+        const setItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key, value) {
+            if (this === localStorage && (key === 'templeTossHighScore' || key === 'leaderboard')) {
+                throw new DOMException('Storage quota reached', 'QuotaExceededError');
+            }
+            return setItem.call(this, key, value);
+        };
+    });
+
+    await finishRun(page, 20);
+    assert.equal(await page.locator('#finalScore').textContent(), 'Your score: 20');
+    assert.equal(await page.locator('#highScore').textContent(), 'High score: 20');
+    await page.getByRole('textbox', { name: 'Player name' }).fill('Ada');
+    await page.locator('#scoreForm button').click();
+    await page.locator('#scoreForm').waitFor({ state: 'hidden' });
+    await page.locator('#leaderboardDisplayGameOver').getByText('1. Ada: 20', { exact: true }).waitFor();
+
+    await finishRun(page, 10, '#restartButton');
+    assert.equal(await page.locator('#finalScore').textContent(), 'Your score: 10');
+    assert.equal(await page.locator('#highScore').textContent(), 'High score: 20');
+    const leaderboard = page.locator('#leaderboardDisplayGameOver');
+    await leaderboard.getByText('1. Ada: 20', { exact: true }).waitFor();
+    await leaderboard.getByText('2. Ada: 10', { exact: true }).waitFor();
+    assert.deepEqual(await page.evaluate(() => ({
+        best: localStorage.getItem('templeTossHighScore'),
+        leaderboard: localStorage.getItem('leaderboard'),
+    })), { best: null, leaderboard: '[]' });
+});
+
 test('Leaderboard uses Player for a whitespace-only name', async t => {
     const page = await openLeaderboardGame(t);
     await finishRun(page, 20);

@@ -1088,11 +1088,19 @@
             player.style.filter = 'none';
         }
 
+        function saveLocalScore(key, value) {
+            try {
+                localStorage.setItem(key, value);
+            } catch {
+                // Keep the score in memory if the browser refuses to save it.
+            }
+        }
+
         function saveScore(name) {
             leaderboard.push({ name, score });
             leaderboard.sort((a, b) => b.score - a.score);
             leaderboard = leaderboard.slice(0, 5);
-            localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
+            saveLocalScore('leaderboard', JSON.stringify(leaderboard));
             updateLeaderboardDisplay();
         }
 
@@ -1123,7 +1131,7 @@
             finalScoreDisplay.textContent = 'Your score: ' + score;
             if (score > highScore) {
                 highScore = score;
-                localStorage.setItem('templeTossHighScore', String(highScore));
+                saveLocalScore('templeTossHighScore', String(highScore));
             }
             highScoreGameOver.textContent = 'High score: ' + highScore;
             if (leaderboard.length < 5 || score > leaderboard[leaderboard.length - 1].score) {
