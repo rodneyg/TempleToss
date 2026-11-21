@@ -315,19 +315,18 @@
         }
 
         #jumpButton {
-            background: linear-gradient(to bottom right, #4CAF50, #2E7D32);
+            background: linear-gradient(to bottom right, #2E7D32, #1B5E20);
             margin-right: auto;
         }
 
         #tossButton {
-            background: linear-gradient(to bottom right, #FF9800, #E65100);
+            background: linear-gradient(to bottom right, #B54A00, #963800);
             margin-left: auto;
         }
 
         .keyHint {
             font-size: 12px;
             margin-top: 5px;
-            opacity: 0.8;
         }
 
         .projectile {
@@ -393,7 +392,7 @@
             margin: 10px;
             padding: 12px 24px;
             min-height: 44px;
-            background: linear-gradient(to bottom, #FF5722, #E64A19);
+            background: linear-gradient(to bottom, #BD3C14, #A82E0C);
             color: white;
             border: none;
             border-radius: 5px;
@@ -644,14 +643,14 @@
           media="print" onload="this.media='all'">
 </head>
 <body>
-    <div id="loadingScreen">
-        <h1 id="loadingTitle">Temple Toss</h1>
-        <div id="loadingBar">
-            <div id="loadingProgress"></div>
+    <main id="gameContainer" aria-label="Temple Toss">
+        <div id="loadingScreen">
+            <h1 id="loadingTitle">Temple Toss</h1>
+            <div id="loadingBar">
+                <div id="loadingProgress"></div>
+            </div>
         </div>
-    </div>
 
-    <div id="gameContainer">
         <div id="backgroundElements"></div>
         <div id="gameHud">
             <div id="scoreDisplay">Score: 0</div>
@@ -738,7 +737,7 @@
             </form>
             <div id="leaderboardDisplayGameOver"></div>
         </div>
-    </div>
+    </main>
 
     <script>
         // Game variables
