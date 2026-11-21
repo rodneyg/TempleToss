@@ -407,3 +407,79 @@ test('Hiding a running game clears held input and freezes frames, cooldowns and 
         await context.close();
     }
 });
+
+async function fixedFramePage(t) {
+    const page = await browser.newPage({ viewport: { width: 800, height: 500 } });
+    t.after(() => page.close());
+    await page.route('**/*', route => route.request().url() === url ? route.continue() : route.abort());
+    await page.addInitScript(() => {
+        Math.random = () => 0.5;
+        localStorage.setItem('musicOn', 'false');
+        localStorage.setItem('sfxOn', 'false');
+        let now = 0;
+        let nextId = 0;
+        const frames = new Map();
+        performance.now = () => now;
+        window.requestAnimationFrame = callback => {
+            frames.set(++nextId, callback);
+            return nextId;
+        };
+        window.cancelAnimationFrame = id => frames.delete(id);
+        window.advanceGameFrame = () => {
+            now += 1000 / 60;
+            for (const [id, callback] of [...frames]) {
+                if (frames.delete(id)) callback(now);
+            }
+        };
+    });
+    await openGame(page, url);
+    await page.locator('#startButton').click();
+    return page;
+}
+
+async function assertScore(page, total, floatingScores) {
+    assert.equal(await page.locator('#scoreDisplay').textContent(), `Score: ${total}`);
+    assert.deepEqual(await page.locator('.floatingScore').allTextContents(), floatingScores);
+}
+
+test('Adjacent expired entities are all removed and both obstacle bonuses land in the same frame', async t => {
+    const page = await fixedFramePage(t);
+    const remaining = await page.evaluate(() => {
+        for (let i = 0; i < 2; i++) {
+            generateObstacle();
+            obstacles[i].x = -50;
+            generateTarget();
+            targets[i].x = -50;
+            spawnParticle(0, 0, 0, 0);
+            particles[i].lifetime = 0;
+            const element = document.createElement('div');
+            element.className = 'projectile';
+            gameContainer.appendChild(element);
+            projectiles.push({ element, x: 0, y: 0, vy: -19 });
+        }
+        window.advanceGameFrame();
+        return Object.fromEntries(['obstacle', 'target', 'projectile', 'particle'].map(
+            name => [name, document.querySelectorAll(`.${name}`).length]
+        ));
+    });
+    assert.deepEqual(remaining, { obstacle: 0, target: 0, projectile: 0, particle: 0 });
+    await assertScore(page, 10, ['+5', '+5']);
+});
+
+test('Two tosses hitting separate targets in the same frame both score', async t => {
+    const page = await fixedFramePage(t);
+    await page.evaluate(() => {
+        for (const x of [playerX, playerX + 150]) {
+            generateTarget();
+            const target = targets.at(-1);
+            target.x = x;
+            const element = document.createElement('div');
+            element.className = 'projectile';
+            gameContainer.appendChild(element);
+            projectiles.push({ element, x, y: target.y + 19, vy: -19 });
+        }
+        window.advanceGameFrame();
+    });
+    assert.equal(await page.locator('.target, .projectile').count(), 0);
+    await assertScore(page, 20, ['+10', '+10']);
+});
