@@ -1015,6 +1015,11 @@
             showPlayControls(false);
             pauseRun();
             finalScoreDisplay.textContent = 'Your score: ' + score;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('templeTossHighScore', String(highScore));
+            }
+            highScoreGameOver.textContent = 'High score: ' + highScore;
             if (leaderboard.length < 5 || score > leaderboard[leaderboard.length - 1].score) {
                 const name = sessionStorage.getItem('playerName');
                 if (name) {
