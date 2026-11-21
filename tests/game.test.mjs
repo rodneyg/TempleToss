@@ -27,6 +27,25 @@ after(async () => {
     server?.close();
 });
 
+test('The main landmark contains the loading screen and all game screens', async t => {
+    const page = await browser.newPage();
+    t.after(() => page.close());
+
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    const main = page.getByRole('main', { name: 'Temple Toss' });
+    assert.equal(await main.count(), 1);
+    assert.equal(await main.locator('#loadingTitle').textContent(), 'Temple Toss');
+    await page.locator('#loadingScreen').waitFor({ state: 'hidden' });
+
+    await main.getByRole('button', { name: 'Start Game' }).click();
+    await main.getByRole('button', { name: /^Toss/i }).waitFor();
+    assert.match(await main.locator('#scoreDisplay').textContent(), /^Score: \d+$/);
+
+    await page.evaluate(() => endGame());
+    await main.getByRole('heading', { name: 'Game Over!' }).waitFor();
+    await main.getByRole('textbox', { name: 'Player name' }).waitFor();
+});
+
 test('Analytics queues only anonymous run events when the script is blocked', async t => {
     const page = await browser.newPage({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
     t.after(() => page.close());
