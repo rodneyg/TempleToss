@@ -11,7 +11,12 @@ let url;
 
 before(async () => {
     const html = await readFile(new URL('../index.html', import.meta.url));
-    server = createServer((_req, res) => res.writeHead(200, { 'Content-Type': 'text/html' }).end(html));
+    server = createServer((req, res) => {
+        if (req.url === '/_vercel/insights/script.js') {
+            return res.writeHead(200, { 'Content-Type': 'application/javascript' }).end();
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html' }).end(html);
+    });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     url = `http://127.0.0.1:${server.address().port}/`;
     browser = await chromium.launch();
@@ -20,6 +25,54 @@ before(async () => {
 after(async () => {
     await browser?.close();
     server?.close();
+});
+
+test('Analytics queues only anonymous run events when the script is blocked', async t => {
+    const page = await browser.newPage({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
+    t.after(() => page.close());
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => {
+        if (message.type() !== 'error') return;
+        // Chromium reports the blocked request independently of application errors.
+        if (message.text() === 'Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector'
+            && message.location().url === new URL('/_vercel/insights/script.js', url).href) return;
+        errors.push(message.text());
+    });
+
+    let blockedRequests = 0;
+    await page.route('**/_vercel/insights/script.js', route => {
+        blockedRequests++;
+        return route.abort('blockedbyclient');
+    });
+    await page.addInitScript(() => {
+        sessionStorage.setItem('playerName', 'Private Player Name');
+    });
+    await openGame(page, url);
+    assert.equal(blockedRequests, 1);
+
+    await tap(page, '#startButton');
+    await page.waitForFunction(() => audioContext.state === 'running' && musicLoop.loop);
+    await tap(page, '#tossButton');
+    await page.locator('.projectile').first().waitFor();
+    await page.evaluate(() => {
+        score = 15;
+        endGame();
+        endGame();
+    });
+    assert.equal(await page.locator('#finalScore').textContent(), 'Your score: 15');
+    await page.locator('#leaderboardDisplayGameOver').getByText(/Private Player Name/).waitFor();
+
+    await page.locator('#restartButton').press('Enter');
+    await page.evaluate(() => endGame());
+
+    assert.deepEqual(await page.evaluate(() => window.vaq), [
+        ['event', { name: 'game_start', data: { input_mode: 'touch' } }],
+        ['event', { name: 'game_over', data: { input_mode: 'touch' } }],
+        ['event', { name: 'game_start', data: { input_mode: 'keyboard' } }],
+        ['event', { name: 'game_over', data: { input_mode: 'keyboard' } }],
+    ]);
+    assert.deepEqual(errors, []);
 });
 
 test('The game starts and accepts a toss without Web Audio or external stylesheets', async () => {
