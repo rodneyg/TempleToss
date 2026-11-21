@@ -23,6 +23,14 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png">
     <link rel="manifest" href="./manifest.webmanifest">
+    <script>
+        window.va = window.va || function (...args) {
+            const queue = window.vaq ||= [];
+            // Bound the backlog if the analytics script is unavailable.
+            if (queue.length < 100) queue.push(args);
+        };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
     <style>
         :root {
             --primary: #FF5722;
@@ -1097,6 +1105,17 @@
             saveScore(name);
         }
 
+        // Use the activation method for both events in the same run.
+        let runInputMode = 'keyboard';
+
+        function trackRunEvent(name) {
+            try {
+                window.va?.('event', { name, data: { input_mode: runInputMode } });
+            } catch {
+                // Analytics is optional and must never interrupt gameplay.
+            }
+        }
+
         function endGame() {
             if (gameOver) return;
             gameOver = true;
@@ -1119,6 +1138,7 @@
             }
             gameOverScreen.style.display = 'block';
             playSfx(220, 75);
+            trackRunEvent('game_over');
         }
 
         function updateLeaderboardDisplay() {
@@ -1491,7 +1511,7 @@
             playerShadow.style.left = playerX + 'px';
         }).observe(gameContainer);
 
-        function startRun() {
+        function startRun(event) {
             finishScore();
             instructions.style.display = 'none';
             gameOverScreen.style.display = 'none';
@@ -1499,6 +1519,10 @@
             gameStarted = true;
             showPlayControls(true);
             scheduleRunFrame();
+            runInputMode = event.pointerType === 'touch' || event.sourceCapabilities?.firesTouchEvents
+                ? 'touch'
+                : 'keyboard';
+            trackRunEvent('game_start');
         }
 
         startButton.addEventListener('click', startRun);

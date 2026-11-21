@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { after, before, test } from 'node:test';
 import { chromium, devices } from 'playwright';
-import { jumpAndSteer, openGame, playerPosition, tap } from './touch-loop.mjs';
+import { advanceFrames, jumpAndSteer, openGame, playerPosition, tap, useFixedGameFrames } from './touch-loop.mjs';
 
 const compactScreen = { width: 320, height: 568 };
 const phones = {
@@ -17,7 +17,10 @@ let url;
 
 before(async () => {
     const html = await readFile(new URL('../index.html', import.meta.url));
-    server = createServer((_request, response) => {
+    server = createServer((request, response) => {
+        if (request.url === '/_vercel/insights/script.js') {
+            return response.writeHead(200, { 'Content-Type': 'application/javascript' }).end();
+        }
         response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(html);
     });
     server.listen(0, '127.0.0.1');
@@ -43,10 +46,14 @@ for (const [phone, device] of Object.entries(phones)) {
             await page.route('**/*', route => {
                 return new URL(route.request().url()).origin === url ? route.continue() : route.abort();
             });
+            await useFixedGameFrames(page);
             await openGame(page, url);
             await tap(page, '#startButton');
             await page.locator('#instructions').waitFor({ state: 'hidden', timeout: 1500 });
             await page.locator('#controls').waitFor({ timeout: 1500 });
+
+            // Keep obstacles out of the control exercise while stepping frames.
+            await page.evaluate(() => { obstacleElapsed = -Infinity; });
 
             // Hold each direction with a second finger on Jump, as a player would.
             const cdp = await context.newCDPSession(page);
@@ -55,6 +62,7 @@ for (const [phone, device] of Object.entries(phones)) {
 
             const standing = await playerPosition(page);
             await tap(page, '#jumpButton');
+            await advanceFrames(page, 3);
             await page.waitForFunction(y => parseFloat(document.getElementById('player').style.top) < y - 10,
                 standing.y, { timeout: 1500 });
             await tap(page, '#tossButton');
