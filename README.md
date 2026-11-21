@@ -40,8 +40,8 @@ The game features a **beautiful temple-themed background**, complete with stars,
 - Bonus points for hitting **high targets** and during **super jump mode**.
 
 ### Leaderboard:
-- The results screen shows your run score and personal best. The game saves your best in this browser.
-- A **local leaderboard** that stores the **top 5 scores** with player names.
+- The results screen shows your run score and personal best. A **local leaderboard** tracks the **top 5 scores** with player names.
+- The browser saves your best and the leaderboard when it accepts score writes. If those writes fail, new scores are available until you reload or close the page.
 
 ### Mobile Compatibility:
 - Phones show Jump, Toss, and left and right arrow buttons in portrait and landscape.
@@ -53,11 +53,9 @@ Select **Start Game** to begin. After a run, you can select **Play Again** or **
 
 ### Controls:
 - **Jump**. Press Space, W, or the up arrow, or use the Jump button. Hold to jump higher.
-- **Toss**. Press T or use the Toss button.
+- **Toss**. Press T or use the Toss button. On a phone, you can tap Toss with another finger while holding a steering arrow.
 - **Move left or right in the air**. Hold A or D, the left or right arrow key, or an on-screen arrow on a touch device.
-- **Audio Toggles**:  
-  - Click the **speaker icon** (top-right) to mute/unmute background music.  
-  - Click the **headphones icon** to mute/unmute sound effects.
+- **Audio toggles**. Use the speaker button for music or the headphones button for sound effects. You can also focus either button with Tab and activate it with Enter or Space.
 
 ### Gameplay:
 - Avoid **triangular obstacles** by jumping over them.
@@ -85,7 +83,7 @@ Select **Start Game** to begin. After a run, you can select **Play Again** or **
 
 ### Browser tests:
 
-Run `npm ci` and `npx playwright install chromium`, then run `npm run lint` and `npm test`. The tests cover touch play in both orientations and desktop keyboard and mouse play.
+Run `npm ci` and `npx playwright install chromium`, then run `npm run lint` and `npm test`. The tests cover touch play in both orientations and desktop keyboard and mouse play. Run `npm run test:e2e` for the iPhone SE and Pixel 7 touch checks.
 
 ### Current State:
 - The game includes **core mechanics** such as jumping, tossing, obstacle avoidance, power-up collection, and target hitting.
@@ -122,7 +120,6 @@ As the author, I have **ambitious plans** to elevate *Temple Toss* into a world-
 
 - **Game Design and Development**: *Rodney Gainous Jr.*
 - **Music and sound effects**: Synthesized in the browser with Web Audio
-- **Icons**: *Font Awesome*
 
 ## Feedback and Issues
 
