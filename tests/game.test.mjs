@@ -141,6 +141,33 @@ for (const viewport of phoneViewports) {
 const compactViewport = { width: 320, height: 568 };
 const compactPhone = { ...devices['iPhone SE'], viewport: compactViewport, screen: compactViewport };
 
+for (const viewport of [compactViewport, { width: 375, height: 667 }]) {
+    test(`The loading title fits with fallback fonts at ${viewport.width}x${viewport.height}`, async () => {
+        const context = await browser.newContext({ ...compactPhone, viewport, screen: viewport });
+        try {
+            await context.route('**/*', route =>
+                route.request().url() === url ? route.continue() : route.abort());
+
+            const page = await context.newPage();
+            await page.clock.install({ time: 0 });
+            await page.clock.pauseAt(1000);
+            await page.goto(url, { waitUntil: 'domcontentloaded' });
+            const title = page.locator('#loadingTitle');
+            assert.ok(await title.isVisible(), 'The loading screen must be visible for the fit check');
+            const lines = await title.evaluate(node => {
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                return [...range.getClientRects()].map(({ left, right }) => ({ left, right }));
+            });
+            assert.equal(lines.length, 1, 'The loading title wraps');
+            assert.ok(lines[0].left >= 0 && lines[0].right <= viewport.width,
+                `The loading title crosses the viewport: ${JSON.stringify(lines)}`);
+        } finally {
+            await context.close();
+        }
+    });
+}
+
 for (const device of [compactPhone, devices['Pixel 7']]) {
     const { width, height } = device.viewport;
     for (const viewport of [device.viewport, { width: height, height: width }]) {
