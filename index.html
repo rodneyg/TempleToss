@@ -479,11 +479,26 @@
         }
 
         @media (any-pointer: coarse) {
-            #scoreDisplay, #leaderboardDisplay {
+            #gameHud {
+                position: absolute;
+                top: max(12px, env(safe-area-inset-top));
                 left: max(12px, env(safe-area-inset-left));
+                display: grid;
+                gap: 8px;
+                z-index: 100;
+                pointer-events: none;
             }
 
-            #scoreDisplay, #musicToggle, #sfxToggle {
+            #scoreDisplay, #leaderboardDisplay {
+                position: static;
+            }
+
+            #scoreDisplay {
+                justify-self: start;
+                transform-origin: left center;
+            }
+
+            #musicToggle, #sfxToggle {
                 top: max(12px, env(safe-area-inset-top));
             }
 
@@ -555,6 +570,13 @@
             }
         }
 
+        @media (any-pointer: coarse) {
+            #leaderboardDisplay {
+                max-width: calc(100vw - max(12px, env(safe-area-inset-left)) - max(12px, env(safe-area-inset-right)));
+                overflow-wrap: anywhere;
+            }
+        }
+
         @media (any-pointer: coarse) and (max-height: 430px) {
             #controls {
                 bottom: max(8px, env(safe-area-inset-bottom));
@@ -586,10 +608,12 @@
 
     <div id="gameContainer">
         <div id="backgroundElements"></div>
-        <div id="scoreDisplay">Score: 0</div>
+        <div id="gameHud">
+            <div id="scoreDisplay">Score: 0</div>
+            <div id="leaderboardDisplay"></div>
+        </div>
         <div id="musicToggle" class="on" title="Toggle Music"><i class="fas fa-volume-up"></i></div>
         <div id="sfxToggle" class="on" title="Toggle Sound Effects"><i class="fas fa-headphones"></i></div>
-        <div id="leaderboardDisplay"></div>
         <div id="player"></div>
         <div id="playerShadow"></div>
         <div id="ground"></div>
@@ -696,17 +720,30 @@
         };
         let firstPowerUpSpawned = false;
         let powerUpSpawnTimer = 0;
-        const initialPowerUpDelay = 5000;
-        const powerUpSpawnInterval = 10000;
+        const initialPowerUpDelay = 5;
+        const powerUpSpawnInterval = 10;
         const superJumpDuration = 10;
-        let lastObstacleTime = 0;
-        let lastTargetTime = 0;
-        let obstacleInterval = 2000;
-        let targetInterval = 3000;
+        let obstacleElapsed = 0;
+        let targetElapsed = 0;
+        const obstacleInterval = 2;
+        const targetInterval = 3;
         let gameSpeed = 5;
-        let canToss = true;
+        let tossCooldown = 0;
         let animationFrame = null;
-        let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
+        function readStoredJSON(key) {
+            const value = localStorage.getItem(key);
+            try {
+                return JSON.parse(value);
+            } catch (error) {
+                if (error instanceof SyntaxError) return null;
+                throw error;
+            }
+        }
+
+        const savedLeaderboard = readStoredJSON('leaderboard');
+        let leaderboard = Array.isArray(savedLeaderboard)
+            ? savedLeaderboard.filter(entry => typeof entry?.name === 'string' && Number.isFinite(entry.score))
+            : [];
         const held = { jump: new Set(), left: new Set(), right: new Set() };
         const keyActions = new Map([
             [' ', 'jump'], ['w', 'jump'], ['arrowup', 'jump'],
@@ -714,27 +751,85 @@
             ['d', 'right'], ['arrowright', 'right'],
             ['t', 'toss']
         ]);
-        let lastTime = 0;
+        let lastTime = null;
 
-        // Sound effects
-        const jumpSound = new Audio('https://www.soundjay.com/buttons/sounds/button-1.mp3');
-        const tossSound = new Audio('https://www.soundjay.com/buttons/sounds/button-2.mp3');
-        const orbCollectSound = new Audio('https://www.soundjay.com/buttons/sounds/button-3.mp3');
-        const targetHitSound = new Audio('https://www.soundjay.com/buttons/sounds/button-4.mp3');
-        const obstacleHitSound = new Audio('https://www.soundjay.com/buttons/sounds/button-5.mp3');
+        let audioContext;
+        let musicGain;
+        let musicLoop;
+        let isMusicOn = readStoredJSON('musicOn') !== false;
+        let isSfxOn = readStoredJSON('sfxOn') !== false;
 
-        // Background music
-        const backgroundMusic = new Audio('https://www.bensound.com/bensound-music/bensound-adventure.mp3');
-        backgroundMusic.loop = true;
-        let isMusicOn = JSON.parse(localStorage.getItem('musicOn')) !== false; // Default to on
-        let isSfxOn = JSON.parse(localStorage.getItem('sfxOn')) !== false; // Default to on
+        function createMusicLoop() {
+            const sampleRate = 22050;
+            const noteLength = Math.floor(sampleRate * 0.32);
+            const melody = [220, 329.63, 440, 392, 261.63, 329.63, 293.66, 196];
+            const buffer = audioContext.createBuffer(1, noteLength * melody.length, sampleRate);
+            const samples = buffer.getChannelData(0);
+            for (const [note, frequency] of melody.entries()) {
+                for (let i = 0; i < noteLength; i++) {
+                    const phase = 2 * Math.PI * frequency * i / sampleRate;
+                    const envelope = Math.min(1, i / 160) * (1 - i / noteLength) ** 2;
+                    samples[note * noteLength + i] = envelope * (
+                        0.6 * Math.sin(phase) + 0.2 * Math.sin(phase * 2) + 0.2 * Math.sin(phase / 2)
+                    );
+                }
+            }
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true;
+            source.connect(musicGain);
+            return source;
+        }
 
-        // Preload sounds
-        const sounds = [jumpSound, tossSound, orbCollectSound, targetHitSound, obstacleHitSound, backgroundMusic];
-        sounds.forEach(sound => {
-            sound.load();
-            sound.onerror = () => console.error(`Failed to load sound: ${sound.src}`);
-        });
+        function updateMusic() {
+            if (!audioContext) return;
+            if (isMusicOn && !musicLoop) {
+                musicLoop = createMusicLoop();
+                musicLoop.start();
+            }
+            musicGain.gain.value = isMusicOn ? 0.08 : 0;
+        }
+
+        function resumeAudio() {
+            if (audioContext && audioContext.state !== 'running') {
+                audioContext.resume().catch(err => console.error('Audio resume error:', err));
+            }
+        }
+
+        function unlockAudio(event) {
+            const Audio = window.AudioContext || window.webkitAudioContext;
+            if (!event.isTrusted || document.hidden || !Audio) return;
+            if (!audioContext) {
+                audioContext = new Audio();
+                musicGain = audioContext.createGain();
+                musicGain.connect(audioContext.destination);
+                updateMusic();
+            }
+            resumeAudio();
+        }
+
+        // Some touch browsers only grant activation when the finger lifts.
+        for (const type of ['pointerdown', 'touchend', 'click', 'keydown']) {
+            document.addEventListener(type, unlockAudio, { capture: true, passive: true });
+        }
+
+        function playSfx(startFrequency, endFrequency) {
+            if (!isSfxOn || !audioContext || document.hidden) return;
+            const start = audioContext.currentTime;
+            const end = start + 0.16;
+            const tone = audioContext.createOscillator();
+            const envelope = audioContext.createGain();
+            tone.frequency.setValueAtTime(startFrequency, start);
+            tone.frequency.exponentialRampToValueAtTime(endFrequency, end);
+            envelope.gain.setValueAtTime(0, start);
+            envelope.gain.linearRampToValueAtTime(0.15, start + 0.01);
+            envelope.gain.exponentialRampToValueAtTime(0.001, end);
+            tone.connect(envelope);
+            envelope.connect(audioContext.destination);
+            tone.onended = () => envelope.disconnect();
+            tone.start(start);
+            tone.stop(end);
+        }
 
         // DOM Elements
         const scoreDisplay = document.getElementById('scoreDisplay');
@@ -764,16 +859,10 @@
         musicToggle.innerHTML = isMusicOn ? '<i class="fas fa-volume-up"></i>' : '<i class="fas fa-volume-mute"></i>';
         sfxToggle.innerHTML = isSfxOn ? '<i class="fas fa-headphones"></i>' : '<i class="fas fa-headphones" style="text-decoration: line-through;"></i>';
 
-        if (isMusicOn) backgroundMusic.play().catch(err => console.error('Music play error:', err));
-
         musicToggle.addEventListener('click', () => {
             isMusicOn = !isMusicOn;
             musicToggle.innerHTML = isMusicOn ? '<i class="fas fa-volume-up"></i>' : '<i class="fas fa-volume-mute"></i>';
-            if (isMusicOn) {
-                backgroundMusic.play().catch(err => console.error('Music play error:', err));
-            } else {
-                backgroundMusic.pause();
-            }
+            updateMusic();
             localStorage.setItem('musicOn', JSON.stringify(isMusicOn));
         });
 
@@ -782,11 +871,6 @@
             sfxToggle.innerHTML = isSfxOn ? '<i class="fas fa-headphones"></i>' : '<i class="fas fa-headphones" style="text-decoration: line-through;"></i>';
             localStorage.setItem('sfxOn', JSON.stringify(isSfxOn));
         });
-
-        // Function to play sound effects if SFX is on
-        function playSfx(sound) {
-            if (isSfxOn) sound.play().catch(err => console.error('SFX play error:', err));
-        }
 
         // Function to show floating score
         function showFloatingScore(x, y, points) {
@@ -801,19 +885,19 @@
 
         // Jump function
         function jump() {
-            if (!playerJumping && !gameOver && gameStarted) {
+            if (!playerJumping && isRunActive()) {
                 playerJumping = true;
                 jumpVelocity = superJumpActive ? superJumpStrength : jumpStrength;
                 jumpHoldTime = 0;
                 player.classList.add('jumping');
                 setTimeout(() => player.classList.remove('jumping'), 300);
-                playSfx(jumpSound);
+                playSfx(320, 680);
             }
         }
 
         // Toss function
         function toss() {
-            if (!gameOver && gameStarted && canToss) {
+            if (isRunActive() && tossCooldown <= 0) {
                 const projectile = document.createElement('div');
                 projectile.className = 'projectile';
                 projectile.style.left = playerX + 'px';
@@ -826,9 +910,8 @@
                     vx: 0,
                     vy: -19 // ~361px toss height
                 });
-                canToss = false;
-                setTimeout(() => { canToss = true; }, 500);
-                playSfx(tossSound);
+                tossCooldown = 0.5;
+                playSfx(460, 180);
             }
         }
 
@@ -841,20 +924,23 @@
             obstacles.push({ element: obstacle, x: fieldWidth });
         }
 
-        // Generate target with adjusted positions
+        function skyBottom(elementHeight) {
+            return Math.max(0, fieldHeight - groundHeight - elementHeight);
+        }
+
+        function randomSkyY(minY, maxY, elementHeight) {
+            const bottom = skyBottom(elementHeight);
+            const min = Math.max(0, Math.min(bottom, minY));
+            const max = Math.max(0, Math.min(bottom, maxY));
+            return min + Math.random() * (max - min);
+        }
+
         function generateTarget() {
             const target = document.createElement('div');
             target.className = 'target';
-            let targetY;
-            if (Math.random() < 0.2) {
-                const minY = fieldHeight - 400;
-                const maxY = fieldHeight - 300;
-                targetY = minY + Math.random() * (maxY - minY);
-            } else {
-                const minY = 150; // Adjusted from 100
-                const maxY = 250; // Adjusted from 200
-                targetY = minY + Math.random() * (maxY - minY);
-            }
+            const targetY = Math.random() < 0.2
+                ? randomSkyY(fieldHeight - 400, fieldHeight - 300, 50)
+                : randomSkyY(150, 250, 50);
             target.style.top = targetY + 'px';
             target.style.left = fieldWidth + 'px';
             gameContainer.appendChild(target);
@@ -867,9 +953,7 @@
                 powerUp.element = document.createElement('div');
                 powerUp.element.className = 'powerUp';
                 powerUp.element.style.left = fieldWidth + 'px';
-                const minY = fieldHeight - 400;
-                const maxY = fieldHeight - 300;
-                const powerUpY = minY + Math.random() * (maxY - minY);
+                const powerUpY = randomSkyY(fieldHeight - 400, fieldHeight - 300, 20);
                 powerUp.element.style.top = powerUpY + 'px';
                 gameContainer.appendChild(powerUp.element);
                 powerUp.x = fieldWidth;
@@ -887,7 +971,7 @@
                 const angle = (i / 8) * 2 * Math.PI;
                 spawnParticle(playerX, playerY, 2 * Math.cos(angle), 2 * Math.sin(angle));
             }
-            playSfx(orbCollectSound);
+            playSfx(520, 1040);
         }
 
         // Update super jump
@@ -915,6 +999,7 @@
 
         // Reset game state
         function resetGame() {
+            pauseRun();
             gameStarted = false;
             gameOver = false;
             showPlayControls(false);
@@ -936,10 +1021,10 @@
             projectiles = [];
             particles = [];
             powerUp.exists = false;
-            lastObstacleTime = 0;
-            lastTargetTime = 0;
+            obstacleElapsed = 0;
+            targetElapsed = 0;
             scoreDisplay.textContent = 'Score: 0';
-            canToss = true;
+            tossCooldown = 0;
             firstPowerUpSpawned = false;
             powerUpSpawnTimer = 0;
             superJumpActive = false;
@@ -966,8 +1051,13 @@
             if (gameOver) return;
             gameOver = true;
             showPlayControls(false);
-            cancelAnimationFrame(animationFrame);
+            pauseRun();
             finalScoreDisplay.textContent = 'Your score: ' + score;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('templeTossHighScore', String(highScore));
+            }
+            highScoreGameOver.textContent = 'High score: ' + highScore;
             if (leaderboard.length < 5 || score > leaderboard[leaderboard.length - 1].score) {
                 const name = sessionStorage.getItem('playerName');
                 if (name) {
@@ -978,7 +1068,7 @@
                 }
             }
             gameOverScreen.style.display = 'block';
-            playSfx(obstacleHitSound);
+            playSfx(220, 75);
         }
 
         function updateLeaderboardDisplay() {
@@ -1011,35 +1101,53 @@
             });
         }
 
+        function isRunActive() {
+            return gameStarted && !gameOver && !document.hidden;
+        }
+
+        function pauseRun() {
+            if (animationFrame !== null) cancelAnimationFrame(animationFrame);
+            animationFrame = null;
+            lastTime = null;
+        }
+
+        function scheduleRunFrame() {
+            if (animationFrame === null && isRunActive()) {
+                animationFrame = requestAnimationFrame(gameLoop);
+            }
+        }
+
         // Game loop
         function gameLoop(timestamp) {
-            if (!gameStarted || gameOver) return;
+            animationFrame = null;
+            if (!isRunActive()) return;
 
-            const deltaTime = (timestamp - lastTime) / 1000;
+            const deltaTime = (timestamp - (lastTime ?? timestamp)) / 1000;
             lastTime = timestamp;
+            tossCooldown = Math.max(0, tossCooldown - deltaTime);
 
-            // Generate obstacles and targets
-            if (!lastObstacleTime) lastObstacleTime = timestamp;
-            if (timestamp - lastObstacleTime > obstacleInterval) {
+            // Measure spawn timers in active play time so hiding the tab freezes them.
+            obstacleElapsed += deltaTime;
+            if (obstacleElapsed > obstacleInterval) {
                 generateObstacle();
-                lastObstacleTime = timestamp;
+                obstacleElapsed = 0;
             }
-            if (!lastTargetTime) lastTargetTime = timestamp;
-            if (timestamp - lastTargetTime > targetInterval) {
+            targetElapsed += deltaTime;
+            if (targetElapsed > targetInterval) {
                 generateTarget();
-                lastTargetTime = timestamp;
+                targetElapsed = 0;
             }
 
             // Spawn power-up
             if (!firstPowerUpSpawned) {
-                powerUpSpawnTimer += deltaTime * 1000;
+                powerUpSpawnTimer += deltaTime;
                 if (powerUpSpawnTimer >= initialPowerUpDelay) {
                     spawnPowerUp();
                     firstPowerUpSpawned = true;
                     powerUpSpawnTimer = 0;
                 }
             } else {
-                powerUpSpawnTimer += deltaTime * 1000;
+                powerUpSpawnTimer += deltaTime;
                 if (powerUpSpawnTimer >= powerUpSpawnInterval) {
                     spawnPowerUp();
                     powerUpSpawnTimer = 0;
@@ -1077,6 +1185,9 @@
                     jumpVelocity = 0;
                     jumpHoldTime = 0;
                     playerVx = 0; // Reset horizontal velocity on landing
+                } else if (nextY < 0) {
+                    playerY = 0;
+                    jumpVelocity = Math.min(0, jumpVelocity);
                 } else {
                     playerY = nextY;
                 }
@@ -1117,7 +1228,7 @@
                     score += points;
                     targets.splice(tIndex, 1);
                     target.element.remove();
-                    playSfx(targetHitSound);
+                    playSfx(680, 880);
                     showFloatingScore(target.x, target.y, points);
                 }
             }
@@ -1149,15 +1260,17 @@
             updateSuperJump(deltaTime);
 
             // Update obstacles
-            obstacles.forEach((ob, index) => {
+            for (let index = 0; index < obstacles.length; index++) {
+                const ob = obstacles[index];
                 ob.x -= gameSpeed;
                 ob.element.style.left = ob.x + 'px';
                 if (ob.x < -50) {
                     ob.element.remove();
                     obstacles.splice(index, 1);
+                    index--;
                     score += 5;
                     showFloatingScore(playerX, playerY - 20, 5);
-                    return;
+                    continue;
                 }
                 const playerLeft = playerX - 20;
                 const playerRight = playerX + 20;
@@ -1168,27 +1281,31 @@
                 if (playerLeft < obstacleRight && playerRight > obstacleLeft && playerBottom > obstacleTop) {
                     endGame();
                 }
-            });
+            }
 
             // Update targets
-            targets.forEach((target, index) => {
+            for (let index = 0; index < targets.length; index++) {
+                const target = targets[index];
                 target.x -= gameSpeed;
                 target.element.style.left = target.x + 'px';
                 if (target.x < -50) {
                     target.element.remove();
                     targets.splice(index, 1);
+                    index--;
                 }
-            });
+            }
 
             // Update projectiles
-            projectiles.forEach((proj, pIndex) => {
+            for (let pIndex = 0; pIndex < projectiles.length; pIndex++) {
+                const proj = projectiles[pIndex];
                 proj.y += proj.vy;
                 proj.vy += gravity;
                 proj.element.style.top = proj.y + 'px';
                 if (proj.y > fieldHeight || proj.y < 0) {
                     proj.element.remove();
                     projectiles.splice(pIndex, 1);
-                    return;
+                    pIndex--;
+                    continue;
                 }
                 for (let tIndex = targets.length - 1; tIndex >= 0; tIndex--) {
                     const target = targets[tIndex];
@@ -1205,30 +1322,33 @@
                         const points = superJumpActive ? basePoints * 2 : basePoints;
                         score += points;
                         projectiles.splice(pIndex, 1);
+                        pIndex--;
                         proj.element.remove();
                         targets.splice(tIndex, 1);
                         target.element.remove();
-                        playSfx(targetHitSound);
+                        playSfx(680, 880);
                         showFloatingScore(target.x, target.y, points);
                         break;
                     }
                 }
-            });
+            }
 
             // Update particles
-            particles.forEach((particle, index) => {
+            for (let index = 0; index < particles.length; index++) {
+                const particle = particles[index];
                 particle.x += particle.vx - gameSpeed / 2;
                 particle.y += particle.vy;
                 particle.lifetime -= deltaTime;
                 if (particle.lifetime <= 0) {
                     particle.element.remove();
                     particles.splice(index, 1);
-                    return;
+                    index--;
+                    continue;
                 }
                 particle.element.style.left = particle.x + 'px';
                 particle.element.style.top = particle.y + 'px';
                 particle.element.style.opacity = particle.lifetime;
-            });
+            }
 
             // Update score display
             if (scoreDisplay.textContent !== `Score: ${score}`) {
@@ -1237,12 +1357,12 @@
             }
             scoreDisplay.textContent = `Score: ${score}`;
 
-            animationFrame = requestAnimationFrame(gameLoop);
+            scheduleRunFrame();
         }
 
         function bindHold(button, action) {
             button.addEventListener('pointerdown', event => {
-                if (event.button !== 0 || !gameStarted || gameOver) return;
+                if (event.button !== 0 || !isRunActive()) return;
                 button.setPointerCapture(event.pointerId);
                 held[action].add(event.pointerId);
                 if (action === 'jump') jump();
@@ -1259,11 +1379,19 @@
         jumpButton.addEventListener('click', event => {
             if (event.detail === 0) jump();
         });
+        // A second finger can release Toss without the browser generating a click.
+        tossButton.addEventListener('touchend', event => {
+            event.preventDefault();
+            const releasedOnButton = Array.from(event.changedTouches).some(({ clientX, clientY }) =>
+                tossButton.contains(document.elementFromPoint(clientX, clientY))
+            );
+            if (releasedOnButton) toss();
+        }, { passive: false });
         tossButton.addEventListener('click', toss);
 
         document.addEventListener('keydown', event => {
             const action = keyActions.get(event.key.toLowerCase());
-            if (!gameStarted || gameOver || !action || event.metaKey || event.ctrlKey || event.altKey) return;
+            if (!isRunActive() || !action || event.metaKey || event.ctrlKey || event.altKey) return;
             event.preventDefault();
             if (action === 'toss') {
                 toss();
@@ -1279,15 +1407,30 @@
         });
         window.addEventListener('blur', clearControls);
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden) clearControls();
+            if (document.hidden) {
+                clearControls();
+                pauseRun();
+                audioContext?.suspend().catch(err => console.error('Audio suspend error:', err));
+            } else {
+                resumeAudio();
+                scheduleRunFrame();
+            }
         });
 
         new ResizeObserver(() => {
             fieldWidth = gameContainer.clientWidth;
             fieldHeight = gameContainer.clientHeight;
             const nextInitialY = fieldHeight - groundHeight - playerHeight;
-            playerY += nextInitialY - initialY;
+            playerY = Math.max(0, playerY + nextInitialY - initialY);
             initialY = nextInitialY;
+            for (const target of targets) {
+                target.y = Math.min(target.y, skyBottom(50));
+                target.element.style.top = target.y + 'px';
+            }
+            if (powerUp.exists) {
+                powerUp.y = Math.min(powerUp.y, skyBottom(20));
+                powerUp.element.style.top = powerUp.y + 'px';
+            }
             playerX = gameStarted && !gameOver
                 ? Math.max(20, Math.min(fieldWidth - 20, playerX))
                 : fieldWidth / 2;
@@ -1303,8 +1446,7 @@
             resetGame();
             gameStarted = true;
             showPlayControls(true);
-            lastTime = performance.now();
-            animationFrame = requestAnimationFrame(gameLoop);
+            scheduleRunFrame();
         }
 
         startButton.addEventListener('click', startRun);
