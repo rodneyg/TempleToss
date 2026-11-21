@@ -52,13 +52,45 @@ async function sendTouch(cdp, type, touchPoints) {
     await cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
 }
 
-async function jumpAndSteer(page, cdp, direction) {
+export async function useFixedGameFrames(page) {
+    await page.addInitScript(() => {
+        const requestFrame = window.requestAnimationFrame.bind(window);
+        const cancelFrame = window.cancelAnimationFrame.bind(window);
+        let callback;
+        let now = 0;
+        // Leave browser and Playwright frames on wall time. Step only gameplay.
+        window.requestAnimationFrame = frame => {
+            if (frame.name !== 'gameLoop') return requestFrame(frame);
+            callback = frame;
+            return -1;
+        };
+        window.cancelAnimationFrame = id => {
+            if (id === -1) callback = undefined;
+            else cancelFrame(id);
+        };
+        window.stepTouchLoop = () => {
+            now += 1000 / 60;
+            const frame = callback;
+            callback = undefined;
+            frame?.(now);
+        };
+    });
+}
+
+export async function advanceFrames(page, count) {
+    await page.evaluate(count => {
+        for (let frame = 0; frame < count; frame++) window.stepTouchLoop();
+    }, count);
+}
+
+export async function jumpAndSteer(page, cdp, direction) {
     const start = await playerPosition(page);
     const arrow = { ...await centerOf(page, `#${direction}Button`), id: 1 };
     const jump = { ...await centerOf(page, '#jumpButton'), id: 2 };
     await sendTouch(cdp, 'touchStart', [arrow]);
     await sendTouch(cdp, 'touchStart', [arrow, jump]);
     try {
+        await advanceFrames(page, 8);
         await page.waitForFunction(({ start, direction }) => {
             const { left, top } = document.getElementById('player').style;
             const dx = parseFloat(left) - start.x;
@@ -67,6 +99,7 @@ async function jumpAndSteer(page, cdp, direction) {
     } finally {
         await sendTouch(cdp, 'touchEnd', []);
     }
+    await advanceFrames(page, 85);
     await page.waitForFunction(y => parseFloat(document.getElementById('player').style.top) === y,
         start.y, { timeout: 1800 });
 }
@@ -120,8 +153,9 @@ async function collideWithObstacle(page) {
     await page.evaluate(() => {
         generateObstacle();
         obstacles.at(-1).x = playerX;
+        window.stepTouchLoop();
     });
-    await page.locator('#gameOver').waitFor({ timeout: 2000 });
+    await page.locator('#gameOver').waitFor({ timeout: 10000 });
 }
 
 export async function runTouchLoop(browser, url, viewport, { screenshot, preparePage } = {}) {
@@ -129,6 +163,7 @@ export async function runTouchLoop(browser, url, viewport, { screenshot, prepare
     try {
         const page = await context.newPage();
         await preparePage?.(page);
+        await useFixedGameFrames(page);
         const cdp = await context.newCDPSession(page);
         await openGame(page, url);
         await verifyGameFits(page);

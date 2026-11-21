@@ -10,7 +10,7 @@ if (!scripts.length) throw new Error('No inline game scripts found');
 for (const [, script] of scripts) {
     execFileSync(process.execPath, ['--check'], { input: script, stdio: ['pipe', 'inherit', 'inherit'] });
 }
-for (const script of ['tests/touch-loop.mjs', 'tests/game.test.mjs']) {
+for (const script of ['tests/touch-loop.mjs', 'tests/game.test.mjs', 'tests/scoring.test.mjs', 'tests/touch.e2e.mjs']) {
     execFileSync(process.execPath, ['--check', script], { cwd: root, stdio: 'inherit' });
 }
 execFileSync('git', ['diff', '--check', 'HEAD'], { cwd: root, stdio: 'inherit' });

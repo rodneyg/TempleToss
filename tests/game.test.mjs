@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { after, before, test } from 'node:test';
 import { chromium, devices } from 'playwright';
-import { centerOf, openGame, phoneViewports, playerPosition, runTouchLoop, tap } from './touch-loop.mjs';
+import { advanceFrames, centerOf, openGame, phoneViewports, playerPosition, runTouchLoop, tap, useFixedGameFrames } from './touch-loop.mjs';
 
 let browser;
 let server;
@@ -11,7 +11,12 @@ let url;
 
 before(async () => {
     const html = await readFile(new URL('../index.html', import.meta.url));
-    server = createServer((_req, res) => res.writeHead(200, { 'Content-Type': 'text/html' }).end(html));
+    server = createServer((req, res) => {
+        if (req.url === '/_vercel/insights/script.js') {
+            return res.writeHead(200, { 'Content-Type': 'application/javascript' }).end();
+        }
+        res.writeHead(200, { 'Content-Type': 'text/html' }).end(html);
+    });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     url = `http://127.0.0.1:${server.address().port}/`;
     browser = await chromium.launch();
@@ -20,6 +25,88 @@ before(async () => {
 after(async () => {
     await browser?.close();
     server?.close();
+});
+
+test('Analytics queues only anonymous run events when the script is blocked', async t => {
+    const page = await browser.newPage({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
+    t.after(() => page.close());
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => {
+        if (message.type() !== 'error') return;
+        // Chromium reports the blocked request independently of application errors.
+        if (message.text() === 'Failed to load resource: net::ERR_BLOCKED_BY_CLIENT.Inspector'
+            && message.location().url === new URL('/_vercel/insights/script.js', url).href) return;
+        errors.push(message.text());
+    });
+
+    let blockedRequests = 0;
+    await page.route('**/_vercel/insights/script.js', route => {
+        blockedRequests++;
+        return route.abort('blockedbyclient');
+    });
+    await page.addInitScript(() => {
+        sessionStorage.setItem('playerName', 'Private Player Name');
+    });
+    await openGame(page, url);
+    assert.equal(blockedRequests, 1);
+
+    await tap(page, '#startButton');
+    await page.waitForFunction(() => audioContext.state === 'running' && musicLoop.loop);
+    await tap(page, '#tossButton');
+    await page.locator('.projectile').first().waitFor();
+    await page.evaluate(() => {
+        score = 15;
+        endGame();
+        endGame();
+    });
+    assert.equal(await page.locator('#finalScore').textContent(), 'Your score: 15');
+    await page.locator('#leaderboardDisplayGameOver').getByText(/Private Player Name/).waitFor();
+
+    await page.locator('#restartButton').press('Enter');
+    await page.evaluate(() => endGame());
+
+    assert.deepEqual(await page.evaluate(() => window.vaq), [
+        ['event', { name: 'game_start', data: { input_mode: 'touch' } }],
+        ['event', { name: 'game_over', data: { input_mode: 'touch' } }],
+        ['event', { name: 'game_start', data: { input_mode: 'keyboard' } }],
+        ['event', { name: 'game_over', data: { input_mode: 'keyboard' } }],
+    ]);
+    assert.deepEqual(errors, []);
+});
+
+test('The game starts and accepts a toss without Web Audio or external stylesheets', async () => {
+    const context = await browser.newContext();
+    try {
+        const gameOrigin = new URL(url).origin;
+        const isExternal = requestUrl => new URL(requestUrl).origin !== gameOrigin;
+        await context.route(isExternal, route => route.abort('failed'));
+        await context.addInitScript(() => {
+            window.AudioContext = undefined;
+            window.webkitAudioContext = undefined;
+        });
+
+        const page = await context.newPage();
+        let stylesheetFailed = false;
+        const pageErrors = [];
+        page.on('requestfailed', request => {
+            if (isExternal(request.url()) && request.resourceType() === 'stylesheet') {
+                stylesheetFailed = true;
+            }
+        });
+        page.on('pageerror', error => pageErrors.push(error));
+
+        await openGame(page, url);
+        await page.locator('#startButton').click();
+        await page.locator('#controls').waitFor({ timeout: 5000 });
+        await page.locator('#tossButton').click();
+        await page.locator('.projectile').first().waitFor({ timeout: 5000 });
+
+        assert.ok(stylesheetFailed, 'Expected an external stylesheet request to fail');
+        assert.deepEqual(pageErrors, [], 'Asset failures must not cause uncaught errors');
+    } finally {
+        await context.close();
+    }
 });
 
 test('Game over saves a new high score and shows it after a lower run on reload', async () => {
@@ -71,7 +158,7 @@ const startupStorageCases = [
     { name: 'a non-array leaderboard', storage: { leaderboard: '{"name":"Ada","score":42}' } },
     {
         name: 'invalid leaderboard entries alongside a valid score',
-        storage: { leaderboard: '[null,{"name":"Missing score"},{"name":1,"score":99},{"name":"String score","score":"99"},{"name":"Ada","score":42}]' },
+        storage: { leaderboard: '[null,{"name":"Missing score"},{"name":1,"score":99},{"name":"String score","score":"99"},{"name":"Infinite score","score":1e400},{"name":"Ada","score":42}]' },
         leaderboardText: savedLeaderboardText,
     },
     {
@@ -118,8 +205,8 @@ for (const {
             await page.locator('#loadingScreen').waitFor({ state: 'hidden', timeout: 6000 });
             assert.deepEqual(pageErrors, []);
             assert.equal(await page.locator('#leaderboardDisplay').textContent(), leaderboardText);
-            assert.equal(await page.locator('#musicToggle i').evaluate(icon => icon.classList.contains('fa-volume-up')), musicOn);
-            assert.equal(await page.locator('#sfxToggle i').evaluate(icon => icon.style.textDecoration !== 'line-through'), sfxOn);
+            assert.equal(await page.locator('#musicToggle').getAttribute('aria-pressed'), String(musicOn));
+            assert.equal(await page.locator('#sfxToggle').getAttribute('aria-pressed'), String(sfxOn));
 
             await page.getByRole('button', { name: 'START GAME' }).click();
             await page.locator('#instructions').waitFor({ state: 'hidden', timeout: 2000 });
@@ -140,6 +227,33 @@ for (const viewport of phoneViewports) {
 
 const compactViewport = { width: 320, height: 568 };
 const compactPhone = { ...devices['iPhone SE'], viewport: compactViewport, screen: compactViewport };
+
+for (const viewport of [compactViewport, { width: 375, height: 667 }]) {
+    test(`The loading title fits with fallback fonts at ${viewport.width}x${viewport.height}`, async () => {
+        const context = await browser.newContext({ ...compactPhone, viewport, screen: viewport });
+        try {
+            await context.route('**/*', route =>
+                route.request().url() === url ? route.continue() : route.abort());
+
+            const page = await context.newPage();
+            await page.clock.install({ time: 0 });
+            await page.clock.pauseAt(1000);
+            await page.goto(url, { waitUntil: 'domcontentloaded' });
+            const title = page.locator('#loadingTitle');
+            assert.ok(await title.isVisible(), 'The loading screen must be visible for the fit check');
+            const lines = await title.evaluate(node => {
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                return [...range.getClientRects()].map(({ left, right }) => ({ left, right }));
+            });
+            assert.equal(lines.length, 1, 'The loading title wraps');
+            assert.ok(lines[0].left >= 0 && lines[0].right <= viewport.width,
+                `The loading title crosses the viewport: ${JSON.stringify(lines)}`);
+        } finally {
+            await context.close();
+        }
+    });
+}
 
 for (const device of [compactPhone, devices['Pixel 7']]) {
     const { width, height } = device.viewport;
@@ -326,6 +440,7 @@ test('Rotating a notched phone during a run keeps the player and existing object
     try {
         const page = await context.newPage();
         const cdp = await prepareSafeArea(page, iphonePortrait);
+        await useFixedGameFrames(page);
         await openGame(page, url);
         await tap(page, '#startButton');
         await page.evaluate(() => {
@@ -337,6 +452,7 @@ test('Rotating a notched phone during a run keeps the player and existing object
         });
         const initialPlayer = await playerPosition(page);
         await tap(page, '#jumpButton');
+        await advanceFrames(page, 4);
         await page.waitForFunction(y => playerY < y - 20, initialPlayer.y);
 
         await page.setViewportSize(landscape);
@@ -368,6 +484,7 @@ test('Rotating a notched phone during a run keeps the player and existing object
 
         await page.setViewportSize(portrait);
         await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: iphonePortrait });
+        await advanceFrames(page, 85);
         await page.waitForFunction(() => playerY === gameContainer.clientHeight - groundHeight - playerHeight);
         await verifySafeLayout(page, iphonePortrait);
         assert.ok(await page.locator('#controls').isVisible());
@@ -412,6 +529,30 @@ test('Desktop supports keyboard menus, jump, air control, toss and existing mous
     }
 });
 
+test('The game starts while the font stylesheet is pending', async () => {
+    const page = await browser.newPage({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
+    const fontStylesheet = 'https://fonts.googleapis.com/**';
+    const { promise: releaseFontRequest, resolve: releaseFonts } = Promise.withResolvers();
+    try {
+        await page.route(fontStylesheet, async route => {
+            await releaseFontRequest;
+            await route.fulfill({ contentType: 'text/css', body: '' });
+        });
+        const fontRequest = page.waitForRequest(fontStylesheet);
+        await Promise.all([openGame(page, url), fontRequest]);
+        const fontLink = page.locator('link[href^="https://fonts.googleapis.com/"]');
+        assert.equal(await fontLink.getAttribute('media'), 'print');
+        await tap(page, '#startButton');
+        await page.locator('#controls').waitFor({ state: 'visible' });
+        releaseFonts();
+        await page.waitForFunction(() =>
+            document.querySelector('link[href^="https://fonts.googleapis.com/"]').media === 'all');
+    } finally {
+        releaseFonts();
+        await page.close();
+    }
+});
+
 test('The first tap starts audio and saved music and effects settings stay separate', async () => {
     const context = await browser.newContext({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
     try {
@@ -430,12 +571,20 @@ test('The first tap starts audio and saved music and effects settings stay separ
         await page.waitForFunction(() => audioContext.state === 'running' && musicLoop.loop);
         assert.ok(await page.evaluate(() => musicLoop.buffer.getChannelData(0).some(sample => sample !== 0)));
 
-        await tap(page, '#musicToggle');
+        const music = page.getByRole('button', { name: 'Music', exact: true });
+        const effects = page.getByRole('button', { name: 'Sound effects', exact: true });
+        assert.equal(await music.getAttribute('aria-pressed'), 'true');
+        await music.press('Space');
+        assert.equal(await music.getAttribute('aria-pressed'), 'false');
         assert.equal(await page.evaluate(() => musicGain.gain.value), 0);
+        assert.equal(await page.evaluate(() => playerJumping), false);
+        assert.equal(await effects.getAttribute('aria-pressed'), 'true');
+        assert.equal(await page.evaluate(() => window.tonesPlayed), 0);
         await tap(page, '#jumpButton');
         assert.equal(await page.evaluate(() => window.tonesPlayed), 1);
 
         await tap(page, '#sfxToggle');
+        assert.equal(await effects.getAttribute('aria-pressed'), 'false');
         await tap(page, '#tossButton');
         await page.locator('.projectile').first().waitFor();
         assert.equal(await page.evaluate(() => window.tonesPlayed), 1);
@@ -444,6 +593,8 @@ test('The first tap starts audio and saved music and effects settings stay separ
         await tap(page, '#startButton');
         await page.waitForFunction(() => audioContext.state === 'running');
         assert.equal(await page.evaluate(() => typeof musicLoop), 'undefined');
+        assert.equal(await music.getAttribute('aria-pressed'), 'false');
+        assert.equal(await effects.getAttribute('aria-pressed'), 'false');
         await tap(page, '#jumpButton');
         assert.equal(await page.evaluate(() => window.tonesPlayed), 0);
     } finally {
@@ -570,4 +721,277 @@ test('Two tosses hitting separate targets in the same frame both score', async t
     });
     assert.equal(await page.locator('.target, .projectile').count(), 0);
     await assertScore(page, 20, ['+10', '+10']);
+});
+
+async function openLeaderboardGame(t, entries = []) {
+    const context = await browser.newContext();
+    t.after(() => context.close());
+    await context.route('**/*', route => {
+        return route.request().url().startsWith(url) ? route.continue() : route.abort();
+    });
+    const page = await context.newPage();
+    await page.addInitScript(initialEntries => {
+        if (localStorage.getItem('leaderboard') === null) {
+            localStorage.setItem('leaderboard', JSON.stringify(initialEntries));
+        }
+    }, entries);
+    await openGame(page, url);
+    return page;
+}
+
+async function finishRun(page, finalScore, startButton = '#startButton') {
+    await page.locator(startButton).click();
+    // Set the final score directly so these tests do not depend on obstacle timing.
+    await page.evaluate(value => {
+        score = value;
+        endGame();
+    }, finalScore);
+    await page.locator('#gameOver').waitFor();
+}
+
+async function assertLeaderboard(page, entries) {
+    assert.deepEqual(
+        await page.evaluate(() => JSON.parse(localStorage.getItem('leaderboard'))),
+        entries
+    );
+    const lines = entries.map(({ name, score }, index) => `${index + 1}. ${name}: ${score}`);
+    for (const display of ['#leaderboardDisplay', '#leaderboardDisplayGameOver']) {
+        assert.deepEqual(await page.locator(`${display} p`).allTextContents(), ['Leaderboard:', ...lines]);
+    }
+}
+
+test('Leaderboard uses Player for a whitespace-only name', async t => {
+    const page = await openLeaderboardGame(t);
+    await finishRun(page, 20);
+    await page.getByRole('textbox', { name: 'Player name' }).fill('   ');
+    await page.locator('#scoreForm button').click();
+    await assertLeaderboard(page, [{ name: 'Player', score: 20 }]);
+});
+
+test('Leaderboard saves at most 24 characters from typed names', async t => {
+    const page = await openLeaderboardGame(t);
+    await finishRun(page, 20);
+    const input = page.getByRole('textbox', { name: 'Player name' });
+    await input.pressSequentially('abcdefghijklmnopqrstuvwxyz');
+    assert.equal(await input.inputValue(), 'abcdefghijklmnopqrstuvwx');
+    await page.locator('#scoreForm button').click();
+    await assertLeaderboard(page, [{ name: 'abcdefghijklmnopqrstuvwx', score: 20 }]);
+});
+
+test('Leaderboard trims names, renders markup literally, and reuses the session name', async t => {
+    const page = await openLeaderboardGame(t);
+    await finishRun(page, 20);
+    const name = '<b>Toss</b>';
+    await page.getByRole('textbox', { name: 'Player name' }).fill(`  ${name}  `);
+    await page.locator('#scoreForm button').click();
+    await assertLeaderboard(page, [{ name, score: 20 }]);
+    assert.equal(await page.locator('#leaderboardDisplay b, #leaderboardDisplayGameOver b').count(), 0);
+
+    await finishRun(page, 30, '#restartButton');
+    await page.locator('#scoreForm').waitFor({ state: 'hidden' });
+    await assertLeaderboard(page, [{ name, score: 30 }, { name, score: 20 }]);
+});
+
+test('Leaderboard keeps the five highest scores and restores their order after reload', async t => {
+    const entries = [
+        { name: 'Avery', score: 90 },
+        { name: 'Dana', score: 70 },
+        { name: 'Ellis', score: 50 },
+        { name: 'Kai', score: 30 },
+        { name: 'Sky', score: 10 },
+    ];
+    const page = await openLeaderboardGame(t, entries);
+    await assertLeaderboard(page, entries);
+
+    await finishRun(page, 60);
+    await page.getByRole('textbox', { name: 'Player name' }).fill('Reese');
+    await page.locator('#scoreForm button').click();
+    const ranked = [entries[0], entries[1], { name: 'Reese', score: 60 }, entries[2], entries[3]];
+    await assertLeaderboard(page, ranked);
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#loadingScreen').waitFor({ state: 'hidden' });
+    await assertLeaderboard(page, ranked);
+});
+
+async function withControlPage(run, { hasTouch = false } = {}) {
+    const context = await browser.newContext({
+        viewport: phoneViewports[0],
+        hasTouch,
+        isMobile: hasTouch,
+    });
+    try {
+        const page = await context.newPage();
+        await page.route(/^https:/, route => route.abort());
+        const startTime = Date.UTC(2026, 0, 1);
+        await page.clock.install({ time: startTime });
+        await page.clock.pauseAt(startTime + 1000);
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        await page.clock.runFor(2600);
+        await page.locator('#startButton').waitFor();
+        await run(page, context);
+    } finally {
+        await context.close();
+    }
+}
+
+function heldControls(page) {
+    return page.evaluate(() => ({
+        jump: [...held.jump],
+        left: [...held.left],
+        right: [...held.right],
+    }));
+}
+
+const noControlsHeld = { jump: [], left: [], right: [] };
+
+for (const releaseEvent of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    test(`Pointer steering releases on ${releaseEvent}`, async () => {
+        await withControlPage(async (page, context) => {
+            const cdp = await context.newCDPSession(page);
+            await tap(page, '#startButton');
+            const arrow = page.locator('#rightButton');
+            const point = { ...await centerOf(page, '#rightButton'), id: 1 };
+            await arrow.evaluate((button, type) => {
+                // Read the state before a later lostpointercapture can clear it.
+                button.addEventListener(type, event => {
+                    button.dataset.release = JSON.stringify({
+                        trusted: event.isTrusted,
+                        held: held.right.has(event.pointerId),
+                    });
+                }, { once: true });
+            }, releaseEvent);
+
+            if (releaseEvent === 'lostpointercapture') {
+                // A move applies the pending capture while the pointer is still down.
+                await page.mouse.move(point.x, point.y);
+                await page.mouse.down();
+                await page.mouse.move(point.x, point.y - 5);
+            } else {
+                await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+            }
+            assert.equal((await heldControls(page)).right.length, 1);
+            await page.keyboard.down('Space');
+            await page.clock.runFor(64);
+            const moving = await playerPosition(page);
+            await page.clock.runFor(16);
+            const beforeRelease = await playerPosition(page);
+            assert.ok(beforeRelease.x > moving.x && beforeRelease.y < moving.y, 'Player was steering mid-jump');
+
+            if (releaseEvent === 'lostpointercapture') {
+                await arrow.evaluate(button => button.releasePointerCapture([...held.right][0]));
+                await page.mouse.move(point.x, point.y - 10);
+            } else {
+                await cdp.send('Input.dispatchTouchEvent', {
+                    type: releaseEvent === 'pointerup' ? 'touchEnd' : 'touchCancel',
+                    touchPoints: [],
+                });
+            }
+
+            assert.deepEqual(JSON.parse(await arrow.getAttribute('data-release')), {
+                trusted: true,
+                held: false,
+            });
+            assert.deepEqual(await heldControls(page), { ...noControlsHeld, jump: ['Space'] });
+            await page.clock.runFor(16);
+            const afterRelease = await playerPosition(page);
+            assert.ok(afterRelease.x - beforeRelease.x < beforeRelease.x - moving.x,
+                'Player stopped accelerating after release');
+            if (releaseEvent === 'lostpointercapture') await page.mouse.up();
+        }, { hasTouch: true });
+    });
+}
+
+for (const releaseEvent of ['blur', 'visibilitychange']) {
+    test(`Held keyboard and pointer controls clear on ${releaseEvent}`, async () => {
+        await withControlPage(async page => {
+            const start = await centerOf(page, '#startButton');
+            await page.mouse.click(start.x, start.y);
+            const { x, y } = await centerOf(page, '#rightButton');
+            await page.mouse.move(x, y);
+            await page.mouse.down();
+            await page.keyboard.down('ArrowLeft');
+            await page.keyboard.down('Space');
+            const before = await heldControls(page);
+            assert.deepEqual(before.jump, ['Space']);
+            assert.deepEqual(before.left, ['ArrowLeft']);
+            assert.equal(before.right.length, 1);
+
+            if (releaseEvent === 'blur') {
+                await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+            } else {
+                // Drive visibility without switching to a different browser window.
+                await page.evaluate(() => {
+                    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+                    document.dispatchEvent(new Event('visibilitychange'));
+                });
+                assert.deepEqual(await heldControls(page), before, 'Visible pages keep held controls');
+                await page.evaluate(() => {
+                    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+                    document.dispatchEvent(new Event('visibilitychange'));
+                    delete document.hidden;
+                });
+            }
+
+            assert.deepEqual(await heldControls(page), noControlsHeld);
+            await page.mouse.up();
+            await page.keyboard.up('ArrowLeft');
+            await page.keyboard.up('Space');
+            await page.keyboard.down('ArrowLeft');
+            assert.deepEqual((await heldControls(page)).left, ['ArrowLeft'], 'New input works after release');
+        }, { hasTouch: true });
+    });
+}
+
+test('Keyboard release clears only the released key and ignores modified input', async () => {
+    await withControlPage(async page => {
+        const { x, y } = await centerOf(page, '#startButton');
+        await page.mouse.click(x, y);
+        const start = await playerPosition(page);
+        await page.keyboard.press('Control+Space');
+        await page.keyboard.down('Alt');
+        await page.keyboard.down('ArrowLeft');
+        assert.deepEqual(await heldControls(page), noControlsHeld);
+        await page.keyboard.up('ArrowLeft');
+        await page.keyboard.up('Alt');
+        await page.keyboard.press('Meta+t');
+        await page.clock.runFor(64);
+        assert.deepEqual(await heldControls(page), noControlsHeld);
+        assert.deepEqual(await playerPosition(page), start);
+        assert.equal(await page.locator('.projectile').count(), 0);
+
+        await page.keyboard.down('ArrowLeft');
+        await page.keyboard.down('a');
+        await page.keyboard.down('a');
+        assert.deepEqual((await heldControls(page)).left, ['ArrowLeft', 'KeyA']);
+        await page.keyboard.up('ArrowLeft');
+        assert.deepEqual((await heldControls(page)).left, ['KeyA']);
+        await page.keyboard.up('a');
+        assert.deepEqual(await heldControls(page), noControlsHeld);
+    });
+});
+
+test('Gameplay keys are ignored before the run and after game over', async () => {
+    await withControlPage(async page => {
+        for (const screen of ['#startButton', '#gameOver']) {
+            assert.ok(await page.locator(screen).isVisible());
+            const start = await playerPosition(page);
+            await page.keyboard.down('ArrowLeft');
+            await page.keyboard.down('Space');
+            await page.keyboard.press('t');
+            await page.clock.runFor(64);
+            assert.deepEqual(await heldControls(page), noControlsHeld);
+            assert.deepEqual(await playerPosition(page), start);
+            assert.equal(await page.locator('.projectile').count(), 0);
+            assert.equal(await page.locator('#player.jumping').count(), 0);
+            await page.keyboard.up('Space');
+            await page.keyboard.up('ArrowLeft');
+
+            if (screen === '#startButton') {
+                const { x, y } = await centerOf(page, screen);
+                await page.mouse.click(x, y);
+                await page.clock.runFor(8000);
+            }
+        }
+    });
 });
