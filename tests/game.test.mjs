@@ -71,7 +71,7 @@ const startupStorageCases = [
     { name: 'a non-array leaderboard', storage: { leaderboard: '{"name":"Ada","score":42}' } },
     {
         name: 'invalid leaderboard entries alongside a valid score',
-        storage: { leaderboard: '[null,{"name":"Missing score"},{"name":1,"score":99},{"name":"String score","score":"99"},{"name":"Ada","score":42}]' },
+        storage: { leaderboard: '[null,{"name":"Missing score"},{"name":1,"score":99},{"name":"String score","score":"99"},{"name":"Infinite score","score":1e400},{"name":"Ada","score":42}]' },
         leaderboardText: savedLeaderboardText,
     },
     {
