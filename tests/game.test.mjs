@@ -152,8 +152,8 @@ for (const {
             await page.locator('#loadingScreen').waitFor({ state: 'hidden', timeout: 6000 });
             assert.deepEqual(pageErrors, []);
             assert.equal(await page.locator('#leaderboardDisplay').textContent(), leaderboardText);
-            assert.equal(await page.locator('#musicToggle i').evaluate(icon => icon.classList.contains('fa-volume-up')), musicOn);
-            assert.equal(await page.locator('#sfxToggle i').evaluate(icon => icon.style.textDecoration !== 'line-through'), sfxOn);
+            assert.equal(await page.locator('#musicToggle').getAttribute('aria-pressed'), String(musicOn));
+            assert.equal(await page.locator('#sfxToggle').getAttribute('aria-pressed'), String(sfxOn));
 
             await page.getByRole('button', { name: 'START GAME' }).click();
             await page.locator('#instructions').waitFor({ state: 'hidden', timeout: 2000 });
@@ -455,6 +455,30 @@ test('Desktop supports keyboard menus, jump, air control, toss and existing mous
     }
 });
 
+test('The game starts while the font stylesheet is pending', async () => {
+    const page = await browser.newPage({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
+    const fontStylesheet = 'https://fonts.googleapis.com/**';
+    const { promise: releaseFontRequest, resolve: releaseFonts } = Promise.withResolvers();
+    try {
+        await page.route(fontStylesheet, async route => {
+            await releaseFontRequest;
+            await route.fulfill({ contentType: 'text/css', body: '' });
+        });
+        const fontRequest = page.waitForRequest(fontStylesheet);
+        await Promise.all([openGame(page, url), fontRequest]);
+        const fontLink = page.locator('link[href^="https://fonts.googleapis.com/"]');
+        assert.equal(await fontLink.getAttribute('media'), 'print');
+        await tap(page, '#startButton');
+        await page.locator('#controls').waitFor({ state: 'visible' });
+        releaseFonts();
+        await page.waitForFunction(() =>
+            document.querySelector('link[href^="https://fonts.googleapis.com/"]').media === 'all');
+    } finally {
+        releaseFonts();
+        await page.close();
+    }
+});
+
 test('The first tap starts audio and saved music and effects settings stay separate', async () => {
     const context = await browser.newContext({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
     try {
@@ -473,12 +497,20 @@ test('The first tap starts audio and saved music and effects settings stay separ
         await page.waitForFunction(() => audioContext.state === 'running' && musicLoop.loop);
         assert.ok(await page.evaluate(() => musicLoop.buffer.getChannelData(0).some(sample => sample !== 0)));
 
-        await tap(page, '#musicToggle');
+        const music = page.getByRole('button', { name: 'Music', exact: true });
+        const effects = page.getByRole('button', { name: 'Sound effects', exact: true });
+        assert.equal(await music.getAttribute('aria-pressed'), 'true');
+        await music.press('Space');
+        assert.equal(await music.getAttribute('aria-pressed'), 'false');
         assert.equal(await page.evaluate(() => musicGain.gain.value), 0);
+        assert.equal(await page.evaluate(() => playerJumping), false);
+        assert.equal(await effects.getAttribute('aria-pressed'), 'true');
+        assert.equal(await page.evaluate(() => window.tonesPlayed), 0);
         await tap(page, '#jumpButton');
         assert.equal(await page.evaluate(() => window.tonesPlayed), 1);
 
         await tap(page, '#sfxToggle');
+        assert.equal(await effects.getAttribute('aria-pressed'), 'false');
         await tap(page, '#tossButton');
         await page.locator('.projectile').first().waitFor();
         assert.equal(await page.evaluate(() => window.tonesPlayed), 1);
@@ -487,6 +519,8 @@ test('The first tap starts audio and saved music and effects settings stay separ
         await tap(page, '#startButton');
         await page.waitForFunction(() => audioContext.state === 'running');
         assert.equal(await page.evaluate(() => typeof musicLoop), 'undefined');
+        assert.equal(await music.getAttribute('aria-pressed'), 'false');
+        assert.equal(await effects.getAttribute('aria-pressed'), 'false');
         await tap(page, '#jumpButton');
         assert.equal(await page.evaluate(() => window.tonesPlayed), 0);
     } finally {
