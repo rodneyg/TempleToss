@@ -22,6 +22,40 @@ after(async () => {
     server?.close();
 });
 
+test('The game starts and accepts a toss without Web Audio or external stylesheets', async () => {
+    const context = await browser.newContext();
+    try {
+        const gameOrigin = new URL(url).origin;
+        const isExternal = requestUrl => new URL(requestUrl).origin !== gameOrigin;
+        await context.route(isExternal, route => route.abort('failed'));
+        await context.addInitScript(() => {
+            window.AudioContext = undefined;
+            window.webkitAudioContext = undefined;
+        });
+
+        const page = await context.newPage();
+        let stylesheetFailed = false;
+        const pageErrors = [];
+        page.on('requestfailed', request => {
+            if (isExternal(request.url()) && request.resourceType() === 'stylesheet') {
+                stylesheetFailed = true;
+            }
+        });
+        page.on('pageerror', error => pageErrors.push(error));
+
+        await openGame(page, url);
+        await page.locator('#startButton').click();
+        await page.locator('#controls').waitFor({ timeout: 5000 });
+        await page.locator('#tossButton').click();
+        await page.locator('.projectile').first().waitFor({ timeout: 5000 });
+
+        assert.ok(stylesheetFailed, 'Expected an external stylesheet request to fail');
+        assert.deepEqual(pageErrors, [], 'Asset failures must not cause uncaught errors');
+    } finally {
+        await context.close();
+    }
+});
+
 test('Game over saves a new high score and shows it after a lower run on reload', async () => {
     const context = await browser.newContext({ viewport: { width: 1200, height: 800 } });
     try {
