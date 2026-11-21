@@ -28,7 +28,7 @@ The game features a **beautiful temple-themed background**, complete with stars,
 - **Super Jump**: Activated by collecting yellow orbs, this temporary power-up allows you to jump higher and reach otherwise inaccessible targets.
 
 ### Audio:
-- Music and sound effects have separate toggles. Both default to on. Audio files load from external sites, so the game may be silent if those files are unavailable. Your browser may also block music when the page first opens.
+- Music and sound effects have separate toggles. Both default to on. The browser generates music and sound effects with the Web Audio API after your first tap, click, or keypress.
 
 ### Visuals:
 - **Temple-themed background** with stars, clouds, and a moving ground pattern.
@@ -40,6 +40,7 @@ The game features a **beautiful temple-themed background**, complete with stars,
 - Bonus points for hitting **high targets** and during **super jump mode**.
 
 ### Leaderboard:
+- The results screen shows your run score and personal best. The game saves your best in this browser.
 - A **local leaderboard** that stores the **top 5 scores** with player names.
 
 ### Mobile Compatibility:
@@ -120,8 +121,7 @@ As the author, I have **ambitious plans** to elevate *Temple Toss* into a world-
 ## Credits
 
 - **Game Design and Development**: *Rodney Gainous Jr.*
-- **Music**: *"Adventure" by Bensound*
-- **Sound Effects**: *SoundJay*
+- **Music and sound effects**: Synthesized in the browser with Web Audio
 - **Icons**: *Font Awesome*
 
 ## Feedback and Issues
