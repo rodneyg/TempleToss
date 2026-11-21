@@ -555,6 +555,13 @@
             }
         }
 
+        @media (any-pointer: coarse) {
+            #leaderboardDisplay {
+                max-width: calc(100vw - max(12px, env(safe-area-inset-left)) - max(12px, env(safe-area-inset-right)));
+                overflow-wrap: anywhere;
+            }
+        }
+
         @media (any-pointer: coarse) and (max-height: 430px) {
             #controls {
                 bottom: max(8px, env(safe-area-inset-bottom));
@@ -1329,6 +1336,14 @@
         jumpButton.addEventListener('click', event => {
             if (event.detail === 0) jump();
         });
+        // A second finger can release Toss without the browser generating a click.
+        tossButton.addEventListener('touchend', event => {
+            event.preventDefault();
+            const releasedOnButton = Array.from(event.changedTouches).some(({ clientX, clientY }) =>
+                tossButton.contains(document.elementFromPoint(clientX, clientY))
+            );
+            if (releasedOnButton) toss();
+        }, { passive: false });
         tossButton.addEventListener('click', toss);
 
         document.addEventListener('keydown', event => {

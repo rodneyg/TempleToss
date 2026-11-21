@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { after, before, test } from 'node:test';
-import { chromium } from 'playwright';
+import { chromium, devices } from 'playwright';
 import { centerOf, openGame, phoneViewports, playerPosition, runTouchLoop, tap } from './touch-loop.mjs';
 
 let browser;
@@ -67,6 +67,69 @@ for (const viewport of phoneViewports) {
         await runTouchLoop(browser, url, viewport);
     });
 }
+
+const compactViewport = { width: 320, height: 568 };
+const compactPhone = { ...devices['iPhone SE'], viewport: compactViewport, screen: compactViewport };
+
+for (const device of [compactPhone, devices['Pixel 7']]) {
+    const { width, height } = device.viewport;
+    for (const viewport of [device.viewport, { width: height, height: width }]) {
+        test(`Touch can toss while holding an air arrow at ${viewport.width}x${viewport.height}`, async () => {
+            const context = await browser.newContext({ ...device, viewport });
+            try {
+                const page = await context.newPage();
+                await page.route('**/*', route => {
+                    return route.request().url() === url ? route.continue() : route.abort();
+                });
+                await openGame(page, url);
+                await tap(page, '#startButton');
+
+                const cdp = await context.newCDPSession(page);
+                const arrow = { ...await centerOf(page, '#rightButton'), id: 1 };
+                const toss = { ...await centerOf(page, '#tossButton'), id: 2 };
+                await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [arrow] });
+                await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [arrow, toss] });
+                // End the Toss touch while leaving the steering finger down.
+                await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [toss] });
+
+                const state = await page.evaluate(() => ({
+                    projectiles: document.querySelectorAll('.projectile').length,
+                    steering: held.right.size,
+                }));
+                assert.deepEqual(state, { projectiles: 1, steering: 1 });
+
+                await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+                assert.equal(await page.evaluate(() => held.right.size), 0);
+            } finally {
+                await context.close();
+            }
+        });
+    }
+}
+
+test('The mobile leaderboard fits a full-length name at 320x568', async () => {
+    const context = await browser.newContext(compactPhone);
+    try {
+        const page = await context.newPage();
+        const name = 'W'.repeat(24);
+        await page.addInitScript(name => {
+            localStorage.setItem('leaderboard', JSON.stringify([{ name, score: 900 }]));
+        }, name);
+        await page.route('**/*', route => route.request().url() === url ? route.continue() : route.abort());
+        await openGame(page, url);
+        await tap(page, '#startButton');
+        const entry = page.locator('#leaderboardDisplay').getByText(`1. ${name}: 900`, { exact: true });
+        const lines = await entry.evaluate(node => {
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            return [...range.getClientRects()].map(({ left, right }) => ({ left, right }));
+        });
+        assert.ok(lines.length > 0 && lines.every(({ left, right }) => left >= 12 && right <= 308),
+            `Leaderboard text crosses the 12px viewport margins: ${JSON.stringify(lines)}`);
+    } finally {
+        await context.close();
+    }
+});
 
 test('Rotating a phone keeps the player on the ground and all four controls reachable', async () => {
     const context = await browser.newContext({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
