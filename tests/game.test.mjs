@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { after, before, test } from 'node:test';
 import { chromium, devices } from 'playwright';
-import { centerOf, openGame, phoneViewports, playerPosition, runTouchLoop, tap } from './touch-loop.mjs';
+import { advanceFrames, centerOf, openGame, phoneViewports, playerPosition, runTouchLoop, tap, useFixedGameFrames } from './touch-loop.mjs';
 
 let browser;
 let server;
@@ -422,6 +422,7 @@ test('Rotating a notched phone during a run keeps the player and existing object
     try {
         const page = await context.newPage();
         const cdp = await prepareSafeArea(page, iphonePortrait);
+        await useFixedGameFrames(page);
         await openGame(page, url);
         await tap(page, '#startButton');
         await page.evaluate(() => {
@@ -433,6 +434,7 @@ test('Rotating a notched phone during a run keeps the player and existing object
         });
         const initialPlayer = await playerPosition(page);
         await tap(page, '#jumpButton');
+        await advanceFrames(page, 4);
         await page.waitForFunction(y => playerY < y - 20, initialPlayer.y);
 
         await page.setViewportSize(landscape);
@@ -464,6 +466,7 @@ test('Rotating a notched phone during a run keeps the player and existing object
 
         await page.setViewportSize(portrait);
         await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: iphonePortrait });
+        await advanceFrames(page, 85);
         await page.waitForFunction(() => playerY === gameContainer.clientHeight - groundHeight - playerHeight);
         await verifySafeLayout(page, iphonePortrait);
         assert.ok(await page.locator('#controls').isVisible());
