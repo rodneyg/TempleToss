@@ -1,0 +1,20 @@
+{
+  "name": "Temple Toss",
+  "short_name": "Temple Toss",
+  "start_url": "./",
+  "display": "standalone",
+  "theme_color": "#1a237e",
+  "background_color": "#1a237e",
+  "icons": [
+    {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
