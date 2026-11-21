@@ -705,3 +705,185 @@ test('Leaderboard keeps the five highest scores and restores their order after r
     await page.locator('#loadingScreen').waitFor({ state: 'hidden' });
     await assertLeaderboard(page, ranked);
 });
+
+async function withControlPage(run, { hasTouch = false } = {}) {
+    const context = await browser.newContext({
+        viewport: phoneViewports[0],
+        hasTouch,
+        isMobile: hasTouch,
+    });
+    try {
+        const page = await context.newPage();
+        await page.route(/^https:/, route => route.abort());
+        const startTime = Date.UTC(2026, 0, 1);
+        await page.clock.install({ time: startTime });
+        await page.clock.pauseAt(startTime + 1000);
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        await page.clock.runFor(2600);
+        await page.locator('#startButton').waitFor();
+        await run(page, context);
+    } finally {
+        await context.close();
+    }
+}
+
+function heldControls(page) {
+    return page.evaluate(() => ({
+        jump: [...held.jump],
+        left: [...held.left],
+        right: [...held.right],
+    }));
+}
+
+const noControlsHeld = { jump: [], left: [], right: [] };
+
+for (const releaseEvent of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    test(`Pointer steering releases on ${releaseEvent}`, async () => {
+        await withControlPage(async (page, context) => {
+            const cdp = await context.newCDPSession(page);
+            await tap(page, '#startButton');
+            const arrow = page.locator('#rightButton');
+            const point = { ...await centerOf(page, '#rightButton'), id: 1 };
+            await arrow.evaluate((button, type) => {
+                // Read the state before a later lostpointercapture can clear it.
+                button.addEventListener(type, event => {
+                    button.dataset.release = JSON.stringify({
+                        trusted: event.isTrusted,
+                        held: held.right.has(event.pointerId),
+                    });
+                }, { once: true });
+            }, releaseEvent);
+
+            if (releaseEvent === 'lostpointercapture') {
+                // A move applies the pending capture while the pointer is still down.
+                await page.mouse.move(point.x, point.y);
+                await page.mouse.down();
+                await page.mouse.move(point.x, point.y - 5);
+            } else {
+                await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+            }
+            assert.equal((await heldControls(page)).right.length, 1);
+            await page.keyboard.down('Space');
+            await page.clock.runFor(64);
+            const moving = await playerPosition(page);
+            await page.clock.runFor(16);
+            const beforeRelease = await playerPosition(page);
+            assert.ok(beforeRelease.x > moving.x && beforeRelease.y < moving.y, 'Player was steering mid-jump');
+
+            if (releaseEvent === 'lostpointercapture') {
+                await arrow.evaluate(button => button.releasePointerCapture([...held.right][0]));
+                await page.mouse.move(point.x, point.y - 10);
+            } else {
+                await cdp.send('Input.dispatchTouchEvent', {
+                    type: releaseEvent === 'pointerup' ? 'touchEnd' : 'touchCancel',
+                    touchPoints: [],
+                });
+            }
+
+            assert.deepEqual(JSON.parse(await arrow.getAttribute('data-release')), {
+                trusted: true,
+                held: false,
+            });
+            assert.deepEqual(await heldControls(page), { ...noControlsHeld, jump: ['Space'] });
+            await page.clock.runFor(16);
+            const afterRelease = await playerPosition(page);
+            assert.ok(afterRelease.x - beforeRelease.x < beforeRelease.x - moving.x,
+                'Player stopped accelerating after release');
+            if (releaseEvent === 'lostpointercapture') await page.mouse.up();
+        }, { hasTouch: true });
+    });
+}
+
+for (const releaseEvent of ['blur', 'visibilitychange']) {
+    test(`Held keyboard and pointer controls clear on ${releaseEvent}`, async () => {
+        await withControlPage(async page => {
+            const start = await centerOf(page, '#startButton');
+            await page.mouse.click(start.x, start.y);
+            const { x, y } = await centerOf(page, '#rightButton');
+            await page.mouse.move(x, y);
+            await page.mouse.down();
+            await page.keyboard.down('ArrowLeft');
+            await page.keyboard.down('Space');
+            const before = await heldControls(page);
+            assert.deepEqual(before.jump, ['Space']);
+            assert.deepEqual(before.left, ['ArrowLeft']);
+            assert.equal(before.right.length, 1);
+
+            if (releaseEvent === 'blur') {
+                await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+            } else {
+                // Drive visibility without switching to a different browser window.
+                await page.evaluate(() => {
+                    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+                    document.dispatchEvent(new Event('visibilitychange'));
+                });
+                assert.deepEqual(await heldControls(page), before, 'Visible pages keep held controls');
+                await page.evaluate(() => {
+                    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+                    document.dispatchEvent(new Event('visibilitychange'));
+                    delete document.hidden;
+                });
+            }
+
+            assert.deepEqual(await heldControls(page), noControlsHeld);
+            await page.mouse.up();
+            await page.keyboard.up('ArrowLeft');
+            await page.keyboard.up('Space');
+            await page.keyboard.down('ArrowLeft');
+            assert.deepEqual((await heldControls(page)).left, ['ArrowLeft'], 'New input works after release');
+        }, { hasTouch: true });
+    });
+}
+
+test('Keyboard release clears only the released key and ignores modified input', async () => {
+    await withControlPage(async page => {
+        const { x, y } = await centerOf(page, '#startButton');
+        await page.mouse.click(x, y);
+        const start = await playerPosition(page);
+        await page.keyboard.press('Control+Space');
+        await page.keyboard.down('Alt');
+        await page.keyboard.down('ArrowLeft');
+        assert.deepEqual(await heldControls(page), noControlsHeld);
+        await page.keyboard.up('ArrowLeft');
+        await page.keyboard.up('Alt');
+        await page.keyboard.press('Meta+t');
+        await page.clock.runFor(64);
+        assert.deepEqual(await heldControls(page), noControlsHeld);
+        assert.deepEqual(await playerPosition(page), start);
+        assert.equal(await page.locator('.projectile').count(), 0);
+
+        await page.keyboard.down('ArrowLeft');
+        await page.keyboard.down('a');
+        await page.keyboard.down('a');
+        assert.deepEqual((await heldControls(page)).left, ['ArrowLeft', 'KeyA']);
+        await page.keyboard.up('ArrowLeft');
+        assert.deepEqual((await heldControls(page)).left, ['KeyA']);
+        await page.keyboard.up('a');
+        assert.deepEqual(await heldControls(page), noControlsHeld);
+    });
+});
+
+test('Gameplay keys are ignored before the run and after game over', async () => {
+    await withControlPage(async page => {
+        for (const screen of ['#startButton', '#gameOver']) {
+            assert.ok(await page.locator(screen).isVisible());
+            const start = await playerPosition(page);
+            await page.keyboard.down('ArrowLeft');
+            await page.keyboard.down('Space');
+            await page.keyboard.press('t');
+            await page.clock.runFor(64);
+            assert.deepEqual(await heldControls(page), noControlsHeld);
+            assert.deepEqual(await playerPosition(page), start);
+            assert.equal(await page.locator('.projectile').count(), 0);
+            assert.equal(await page.locator('#player.jumping').count(), 0);
+            await page.keyboard.up('Space');
+            await page.keyboard.up('ArrowLeft');
+
+            if (screen === '#startButton') {
+                const { x, y } = await centerOf(page, screen);
+                await page.mouse.click(x, y);
+                await page.clock.runFor(8000);
+            }
+        }
+    });
+});
