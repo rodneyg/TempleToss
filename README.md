@@ -28,7 +28,7 @@ The game features a **beautiful temple-themed background**, complete with stars,
 - **Super Jump**: Activated by collecting yellow orbs, this temporary power-up allows you to jump higher and reach otherwise inaccessible targets.
 
 ### Audio:
-- Music and sound effects have separate toggles. Both default to on. The browser generates music and sound effects with the Web Audio API after your first tap, click, or keypress.
+- Music and sound effects have separate toggles. Both default to on. Your first tap, click, or keypress enables Web Audio in supported browsers. Music and the run pause while the tab is hidden.
 
 ### Visuals:
 - **Temple-themed background** with stars, clouds, and a moving ground pattern.
@@ -41,15 +41,15 @@ The game features a **beautiful temple-themed background**, complete with stars,
 
 ### Leaderboard:
 - The results screen shows your run score and personal best. A **local leaderboard** tracks the **top 5 scores** with player names.
-- The browser saves your best and the leaderboard when it accepts score writes. If those writes fail, new scores are available until you reload or close the page.
+- The game uses local storage for the personal best and leaderboard. If a score write to local storage fails, that score stays available in the current page until you reload or close it.
 
 ### Mobile Compatibility:
-- Phones show Jump, Toss, and left and right arrow buttons in portrait and landscape.
+- During a run, phones show Jump, Toss, and left and right arrow buttons in portrait and landscape.
 
 ## How to Play
 
 ### Start the Game:
-Select **Start Game** to begin. After a run, you can select **Play Again** or **Main Menu**. If you earn a spot on the leaderboard, the game reuses the name you entered earlier in the session. If it asks for a name, enter one and select **Save Score**, **Play Again**, or **Main Menu** to save the score. A blank name is saved as **Player**.
+Select **Start Game** to begin. After a run, you can select **Play Again** or **Main Menu**. If you earn a spot on the leaderboard, the game reuses the name you entered earlier in the tab. If it asks for a name, enter up to 24 characters and select **Save Score**, **Play Again**, or **Main Menu** to save the score. A blank name is saved as **Player**.
 
 ### Controls:
 - **Jump**. Press Space, W, or the up arrow, or use the Jump button. Hold to jump higher.
@@ -59,20 +59,20 @@ Select **Start Game** to begin. After a run, you can select **Play Again** or **
 
 ### Gameplay:
 - Avoid **triangular obstacles** by jumping over them.
-- Collect **yellow orbs** to activate **super jump mode**, which allows for higher jumps.
+- Collect **yellow orbs** for 10 seconds of **super jump mode**, which allows for higher jumps.
 - Hit **bullseye targets** with your body or projectiles to score points.
 - The game **ends when you collide** with an obstacle.
 
 ### Scoring:
 - Points are awarded for:
-  - Avoiding obstacles (**+5**)
+  - Clearing an obstacle once it scrolls offscreen (**+5**)
   - Hitting targets (**+10** or **+20** for high targets)
 - In **super jump mode**, points for hitting targets are **doubled**.
 
 ## Setup
 
 - **Requirements**: A modern web browser (e.g., **Chrome, Firefox, Edge**).
-- **Installation**: No installation required. Simply **open the `index.html` file** in your browser.
+- **Installation**: No game installation is required. To play from a local checkout, open `index.html` in a browser that supports storage for local files.
 - **Playing the Game**: Click **"START GAME"** to begin. Use the controls to navigate through the temple and score points.
 
 ## Development

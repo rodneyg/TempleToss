@@ -2,7 +2,7 @@
 
 ## 2026-11-21
 
-- Keep the game-over screen, score entry, and replay usable if the browser rejects score writes. Scores stay available until the page reloads or closes. [PR #24](https://github.com/rodneyg/TempleToss/pull/24)
+- Keep the game-over screen, score entry, and replay usable if local storage rejects a personal best or leaderboard write. The affected scores stay available until the page reloads or closes. [PR #24](https://github.com/rodneyg/TempleToss/pull/24)
 - Make Jump, Toss, and menu buttons easier to read, and group the game screens in a named landmark for screen readers. [PR #23](https://github.com/rodneyg/TempleToss/pull/23)
 - Show the game while web fonts load and make the music and sound effects buttons keyboard-accessible. [PR #10](https://github.com/rodneyg/TempleToss/pull/10)
 - Add link previews, a favicon, and home screen icons. [PR #6](https://github.com/rodneyg/TempleToss/pull/6)
