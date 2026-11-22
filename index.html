@@ -1456,7 +1456,7 @@
         bindHold(document.getElementById('leftButton'), 'left');
         bindHold(document.getElementById('rightButton'), 'right');
         jumpButton.addEventListener('click', event => {
-            if (event.detail === 0) jump();
+            if (event.detail === 0 && !event.metaKey && !event.ctrlKey && !event.altKey) jump();
         });
         // A second finger can release Toss without the browser generating a click.
         tossButton.addEventListener('touchend', event => {
@@ -1466,7 +1466,9 @@
             );
             if (releasedOnButton) toss();
         }, { passive: false });
-        tossButton.addEventListener('click', toss);
+        tossButton.addEventListener('click', event => {
+            if (event.detail > 0 || !(event.metaKey || event.ctrlKey || event.altKey)) toss();
+        });
 
         document.addEventListener('keydown', event => {
             // Let Space activate these focused buttons instead of jumping.

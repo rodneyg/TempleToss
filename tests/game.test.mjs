@@ -546,6 +546,10 @@ test('Space activates the focused Toss button without jumping', async t => {
         await page.keyboard.press('Tab');
     }
     assert.equal(await toss.evaluate(button => button.matches(':focus')), true);
+    await page.keyboard.press('Control+Space');
+    await advanceFrames(page, 3);
+    assert.equal(await page.locator('.projectile').count(), 0);
+    assert.deepEqual(await playerPosition(page), start);
     await page.keyboard.press('Space');
     assert.equal(await page.locator('.projectile').count(), 1);
     await advanceFrames(page, 3);
