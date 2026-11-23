@@ -1028,3 +1028,42 @@ test('Gameplay keys are ignored before the run and after game over', async () =>
         }
     });
 });
+
+for (const deniedStorage of [['localStorage'], ['sessionStorage'], ['localStorage', 'sessionStorage']]) {
+    test(`The game stays playable when access to ${deniedStorage.join(' and ')} is denied`, async t => {
+        const page = await browser.newPage();
+        t.after(() => page.close());
+        const errors = [];
+        page.on('pageerror', error => errors.push(error.message));
+        await page.route('**/*', route => {
+            return route.request().url().startsWith(url) ? route.continue() : route.abort();
+        });
+        await page.addInitScript(storageNames => {
+            for (const storageName of storageNames) {
+                Object.defineProperty(window, storageName, {
+                    get() { throw new DOMException('Storage access denied', 'SecurityError'); },
+                });
+            }
+        }, deniedStorage);
+
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
+        assert.deepEqual(errors, []);
+        await page.locator('#loadingScreen').waitFor({ state: 'hidden' });
+        for (const toggle of ['#musicToggle', '#sfxToggle']) {
+            await page.locator(toggle).click();
+            assert.equal(await page.locator(toggle).getAttribute('aria-pressed'), 'false');
+        }
+
+        await finishRun(page, 20);
+        await page.getByRole('textbox', { name: 'Player name' }).fill('Ada');
+        await page.locator('#scoreForm button').click();
+        await page.locator('#scoreForm').waitFor({ state: 'hidden' });
+
+        await finishRun(page, 10, '#restartButton');
+        assert.equal(await page.locator('#highScore').textContent(), 'High score: 20');
+        await page.locator('#scoreForm').waitFor({ state: 'hidden' });
+        assert.deepEqual(await page.locator('#leaderboardDisplayGameOver p').allTextContents(),
+            ['Leaderboard:', '1. Ada: 20', '2. Ada: 10']);
+        assert.deepEqual(errors, []);
+    });
+}
