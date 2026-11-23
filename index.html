@@ -726,7 +726,7 @@
         </div>
 
         <div id="gameOver" style="display: none;">
-            <h2>Game Over!</h2>
+            <h2 id="gameOverTitle" tabindex="-1">Game Over!</h2>
             <p id="finalScore">Your score: 0</p>
             <p id="highScore">High score: 0</p>
             <button id="restartButton" class="menu-button">PLAY AGAIN</button>
@@ -911,6 +911,7 @@
         const sfxToggle = document.getElementById('sfxToggle');
         const leaderBoardDisplay = document.getElementById('leaderboardDisplay');
         const gameOverScreen = document.getElementById('gameOver');
+        const gameOverTitle = document.getElementById('gameOverTitle');
         const finalScoreDisplay = document.getElementById('finalScore');
         const highScoreGameOver = document.getElementById('highScore');
         const restartButton = document.getElementById('restartButton');
@@ -1152,6 +1153,7 @@
                 }
             }
             gameOverScreen.style.display = 'block';
+            gameOverTitle.focus();
             playSfx(220, 75);
             trackRunEvent('game_over');
         }
@@ -1462,7 +1464,7 @@
         bindHold(document.getElementById('leftButton'), 'left');
         bindHold(document.getElementById('rightButton'), 'right');
         jumpButton.addEventListener('click', event => {
-            if (event.detail === 0) jump();
+            if (event.detail === 0 && !event.metaKey && !event.ctrlKey && !event.altKey) jump();
         });
         // A second finger can release Toss without the browser generating a click.
         tossButton.addEventListener('touchend', event => {
@@ -1472,11 +1474,14 @@
             );
             if (releasedOnButton) toss();
         }, { passive: false });
-        tossButton.addEventListener('click', toss);
+        tossButton.addEventListener('click', event => {
+            if (event.detail > 0 || !(event.metaKey || event.ctrlKey || event.altKey)) toss();
+        });
 
         document.addEventListener('keydown', event => {
-            // Let Space activate a focused sound toggle instead of jumping.
-            if (event.code === 'Space' && (event.target === musicToggle || event.target === sfxToggle)) return;
+            // Let Space activate these focused buttons instead of jumping.
+            if (event.code === 'Space' &&
+                [musicToggle, sfxToggle, tossButton].includes(event.target)) return;
             const action = keyActions.get(event.key.toLowerCase());
             if (!isRunActive() || !action || event.metaKey || event.ctrlKey || event.altKey) return;
             event.preventDefault();
@@ -1533,6 +1538,7 @@
             resetGame();
             gameStarted = true;
             showPlayControls(true);
+            jumpButton.focus({ preventScroll: true });
             scheduleRunFrame();
             runInputMode = event.pointerType === 'touch' || event.sourceCapabilities?.firesTouchEvents
                 ? 'touch'
@@ -1547,10 +1553,12 @@
             gameOverScreen.style.display = 'none';
             instructions.style.display = 'block';
             resetGame();
+            startButton.focus();
         });
         scoreForm.addEventListener('submit', event => {
             event.preventDefault();
             finishScore();
+            restartButton.focus();
         });
 
         // Initialize game

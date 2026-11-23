@@ -530,6 +530,68 @@ test('Desktop supports keyboard menus, jump, air control, toss and existing mous
     }
 });
 
+test('Space activates the focused Toss button without jumping', async t => {
+    const page = await browser.newPage();
+    t.after(() => page.close());
+
+    await useFixedGameFrames(page);
+    await openGame(page, url);
+    await page.locator('#startButton').focus();
+    await page.keyboard.press('Enter');
+    const start = await playerPosition(page);
+
+    // Reach Toss through the native Tab order.
+    const toss = page.locator('#tossButton');
+    for (let step = 0; step < 6 && !(await toss.evaluate(button => button.matches(':focus'))); step++) {
+        await page.keyboard.press('Tab');
+    }
+    assert.equal(await toss.evaluate(button => button.matches(':focus')), true);
+    await page.keyboard.press('Control+Space');
+    await advanceFrames(page, 3);
+    assert.equal(await page.locator('.projectile').count(), 0);
+    assert.deepEqual(await playerPosition(page), start);
+    await page.keyboard.press('Space');
+    assert.equal(await page.locator('.projectile').count(), 1);
+    await advanceFrames(page, 3);
+    assert.deepEqual(await playerPosition(page), start);
+});
+
+test('Keyboard focus follows Start, Game Over, Save Score, Play Again, and Main Menu', async t => {
+    const page = await browser.newPage();
+    t.after(() => page.close());
+
+    await useFixedGameFrames(page);
+    await openGame(page, url);
+    const focusedId = () => page.evaluate(() => document.activeElement.id);
+    for (const id of ['musicToggle', 'sfxToggle', 'startButton']) {
+        await page.keyboard.press('Tab');
+        assert.equal(await focusedId(), id);
+    }
+    await page.keyboard.press('Enter');
+    assert.equal(await focusedId(), 'jumpButton');
+
+    await page.evaluate(() => endGame());
+    assert.equal(await focusedId(), 'gameOverTitle');
+    for (const id of ['restartButton', 'mainMenuButton', 'playerName']) {
+        await page.keyboard.press('Tab');
+        assert.equal(await focusedId(), id);
+    }
+    await page.keyboard.type('Focus check');
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement.textContent), 'SAVE SCORE');
+    await page.keyboard.press('Enter');
+    assert.equal(await focusedId(), 'restartButton');
+    await page.keyboard.press('Enter');
+    assert.equal(await focusedId(), 'jumpButton');
+
+    await page.evaluate(() => endGame());
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    assert.equal(await focusedId(), 'mainMenuButton');
+    await page.keyboard.press('Enter');
+    assert.equal(await focusedId(), 'startButton');
+});
+
 test('The game starts while the font stylesheet is pending', async () => {
     const page = await browser.newPage({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
     const fontStylesheet = 'https://fonts.googleapis.com/**';
