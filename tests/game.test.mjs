@@ -1029,8 +1029,8 @@ test('Gameplay keys are ignored before the run and after game over', async () =>
     });
 });
 
-for (const storage of ['localStorage', 'sessionStorage']) {
-    test(`The game stays playable when access to ${storage} is denied`, async t => {
+for (const deniedStorage of [['localStorage'], ['sessionStorage'], ['localStorage', 'sessionStorage']]) {
+    test(`The game stays playable when access to ${deniedStorage.join(' and ')} is denied`, async t => {
         const page = await browser.newPage();
         t.after(() => page.close());
         const errors = [];
@@ -1038,11 +1038,13 @@ for (const storage of ['localStorage', 'sessionStorage']) {
         await page.route('**/*', route => {
             return route.request().url().startsWith(url) ? route.continue() : route.abort();
         });
-        await page.addInitScript(storageName => {
-            Object.defineProperty(window, storageName, {
-                get() { throw new DOMException('Storage access denied', 'SecurityError'); },
-            });
-        }, storage);
+        await page.addInitScript(storageNames => {
+            for (const storageName of storageNames) {
+                Object.defineProperty(window, storageName, {
+                    get() { throw new DOMException('Storage access denied', 'SecurityError'); },
+                });
+            }
+        }, deniedStorage);
 
         await page.goto(url, { waitUntil: 'domcontentloaded' });
         assert.deepEqual(errors, []);
