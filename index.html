@@ -89,7 +89,6 @@
             border-radius: 50%;
             filter: blur(10px);
             opacity: 0.5;
-            animation: drift linear infinite;
         }
 
         @keyframes drift {
@@ -101,7 +100,7 @@
             position: absolute;
             background: white;
             border-radius: 50%;
-            animation: twinkle 4s infinite alternate;
+            opacity: 0.6;
         }
 
         @keyframes twinkle {
@@ -197,7 +196,20 @@
             background-size: 200px 20px;
             bottom: 120px;
             z-index: 6;
-            animation: moveGround 2s linear infinite;
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            #gameContainer.playing .cloud {
+                animation: drift linear infinite;
+            }
+
+            #gameContainer.playing .star {
+                animation: twinkle 4s infinite alternate;
+            }
+
+            #gameContainer.playing #groundPattern {
+                animation: moveGround 2s linear infinite;
+            }
         }
 
         @keyframes moveGround {
