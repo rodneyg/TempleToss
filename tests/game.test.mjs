@@ -535,7 +535,7 @@ test('Rotating a notched phone during a run keeps the player and existing object
         await page.setViewportSize(landscape);
         await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: iphoneLandscape });
         await page.waitForFunction(({ width, height }) => fieldWidth === width && fieldHeight === height, landscape);
-        await verifySafeLayout(page, iphoneLandscape);
+        await verifySafeLayout(page, iphoneLandscape, true);
 
         const sky = await page.evaluate(() => {
             const existing = [targets.at(-1).y, powerUp.y];
@@ -563,7 +563,7 @@ test('Rotating a notched phone during a run keeps the player and existing object
         await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: iphonePortrait });
         await advanceFrames(page, 85);
         await page.waitForFunction(() => playerY === gameContainer.clientHeight - groundHeight - playerHeight);
-        await verifySafeLayout(page, iphonePortrait);
+        await verifySafeLayout(page, iphonePortrait, true);
         assert.ok(await page.locator('#controls').isVisible());
     } finally {
         await context.close();
