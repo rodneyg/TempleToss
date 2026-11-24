@@ -404,6 +404,18 @@ for (const { width, height } of compactTouchViewports) {
     }
 }
 
+async function assertTouchControlOrder(page) {
+    const left = await centerOf(page, '#leftButton');
+    const right = await centerOf(page, '#rightButton');
+    const jump = await centerOf(page, '#jumpButton');
+    const toss = await centerOf(page, '#tossButton');
+    const midpoint = page.viewportSize().width / 2;
+    assert.ok(left.x < right.x && right.x < midpoint && right.x - left.x <= 78,
+        'Move Left must precede Move Right, with both controls on the left');
+    assert.ok(midpoint < jump.x && jump.x < toss.x && toss.x - jump.x <= 78,
+        'Jump must precede Toss, with both controls on the right');
+}
+
 test('Rotating a phone keeps the player on the ground and all four controls reachable', async () => {
     const context = await browser.newContext({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
     try {
@@ -415,13 +427,7 @@ test('Rotating a phone keeps the player on the ground and all four controls reac
             const game = document.getElementById('gameContainer');
             return parseFloat(document.getElementById('player').style.top) === game.clientHeight - 180;
         });
-        const jump = await centerOf(page, '#jumpButton');
-        const toss = await centerOf(page, '#tossButton');
-        const left = await centerOf(page, '#leftButton');
-        const right = await centerOf(page, '#rightButton');
-        const { width } = page.viewportSize();
-        assert.ok(right.x - left.x <= 78 && right.x < width / 2);
-        assert.ok(toss.x - jump.x <= 78 && jump.x > width / 2);
+        await assertTouchControlOrder(page);
         const start = await playerPosition(page);
         await tap(page, '#jumpButton');
         await page.waitForFunction(y => parseFloat(document.getElementById('player').style.top) < y - 10, start.y);
@@ -475,12 +481,7 @@ async function verifySafeLayout(page, { top, right, bottom, left }, playing) {
         assert.ok(score.y + score.height <= leaderboard.y, 'The score overlaps the leaderboard');
         return;
     }
-    const moveLeft = await centerOf(page, '#leftButton');
-    const moveRight = await centerOf(page, '#rightButton');
-    const jump = await centerOf(page, '#jumpButton');
-    const toss = await centerOf(page, '#tossButton');
-    assert.ok(moveRight.x - moveLeft.x <= 78 && moveRight.x < width / 2);
-    assert.ok(toss.x - jump.x <= 78 && jump.x > width / 2);
+    await assertTouchControlOrder(page);
 }
 
 for (const [name, insets] of [
