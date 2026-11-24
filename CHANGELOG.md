@@ -2,6 +2,7 @@
 
 ## 2026-11-23
 
+- Hide the leaderboard during runs on compact touch screens to keep the playfield clear. You can still see it in the menu and on the results screen. [PR #29](https://github.com/rodneyg/TempleToss/pull/29)
 - Keep clouds, stars, and ground still in menus and on the results screen. These effects also stay still during a run when your device is set to reduce motion. [PR #28](https://github.com/rodneyg/TempleToss/pull/28)
 - Move keyboard focus to the active screen when you start, finish, replay, or return to the menu. Space on the focused Toss button tosses without jumping. [PR #27](https://github.com/rodneyg/TempleToss/pull/27)
 - Start and play even when the browser blocks storage. Scores, audio settings, and your player name stay available while the page is open. [PR #26](https://github.com/rodneyg/TempleToss/pull/26)
