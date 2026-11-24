@@ -46,6 +46,27 @@ test('The main landmark contains the loading screen and all game screens', async
     await main.getByRole('textbox', { name: 'Player name' }).waitFor();
 });
 
+test('Decorative motion runs only during play and respects reduced motion', async t => {
+    for (const reducedMotion of ['no-preference', 'reduce']) {
+        const page = await browser.newPage({ reducedMotion });
+        t.after(() => page.close());
+        await openGame(page, url);
+
+        const animationNames = () => page.evaluate(() => ['.cloud', '.star', '#groundPattern']
+            .map(selector => getComputedStyle(document.querySelector(selector)).animationName));
+        const still = ['none', 'none', 'none'];
+        assert.deepEqual(await animationNames(), still, `menu, ${reducedMotion}`);
+
+        await page.getByRole('button', { name: 'Start Game' }).click();
+        const playing = reducedMotion === 'reduce' ? still : ['drift', 'twinkle', 'moveGround'];
+        assert.deepEqual(await animationNames(), playing, `playing, ${reducedMotion}`);
+
+        await page.evaluate(() => endGame());
+        await page.getByRole('heading', { name: 'Game Over!' }).waitFor();
+        assert.deepEqual(await animationNames(), still, `game over, ${reducedMotion}`);
+    }
+});
+
 test('Analytics queues only anonymous run events when the script is blocked', async t => {
     const page = await browser.newPage({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
     t.after(() => page.close());
