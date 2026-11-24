@@ -9,6 +9,7 @@
 
 ## 2026-11-21
 
+- Count anonymous run starts and finishes with Vercel Web Analytics. Each event records only whether the run used touch or keyboard and mouse. The game plays the same if analytics is blocked. [PR #22](https://github.com/rodneyg/TempleToss/pull/22)
 - Keep the game-over screen, score entry, and replay usable if local storage rejects a personal best or leaderboard write. The affected scores stay available until the page reloads or closes. [PR #24](https://github.com/rodneyg/TempleToss/pull/24)
 - Make Jump, Toss, and menu buttons easier to read, and group the game screens in a named landmark for screen readers. [PR #23](https://github.com/rodneyg/TempleToss/pull/23)
 - Show the game while web fonts load and make the music and sound effects buttons keyboard-accessible. [PR #10](https://github.com/rodneyg/TempleToss/pull/10)

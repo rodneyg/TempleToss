@@ -43,6 +43,9 @@ The game features a **beautiful temple-themed background**, complete with stars,
 - The results screen shows your run score and personal best. A **local leaderboard** tracks the **top 5 scores** with player names.
 - The game uses local storage for scores and audio settings and session storage for your player name. If the browser blocks storage, your current scores, settings, and name stay available until you reload or close the page.
 
+### Analytics:
+- The game uses Vercel Web Analytics to count anonymous run starts (`game_start`) and finishes (`game_over`). Each event includes only the input mode, `touch` or `keyboard`. Mouse starts count as `keyboard`. If the analytics script is blocked or unavailable, the game plays the same.
+
 ### Mobile Compatibility:
 - During a run, phones show Jump, Toss, and left and right arrow buttons in portrait and landscape. The game keeps the score and controls clear of screen cutouts. On compact touch screens, the leaderboard appears in the menu and on the results screen when scores have been saved. During a run, the score stays visible and the leaderboard is hidden.
 
