@@ -202,6 +202,14 @@ const startupStorageCases = [
         leaderboardText: savedLeaderboardText,
     },
     {
+        name: 'more than five unsorted leaderboard entries',
+        storage: { leaderboard: JSON.stringify([
+            { name: 'Low', score: 1 }, { name: 'G', score: 70 }, { name: 'F', score: 60 },
+            { name: 'E', score: 50 }, { name: 'D', score: 40 }, { name: 'C', score: 30 }, { name: 'B', score: 20 },
+        ]) },
+        leaderboardText: 'Leaderboard:1. G: 702. F: 603. E: 504. D: 405. C: 30',
+    },
+    {
         name: 'malformed music JSON',
         storage: { leaderboard: savedLeaderboard, musicOn: '{', sfxOn: 'false' },
         leaderboardText: savedLeaderboardText,
@@ -254,6 +262,46 @@ for (const {
             assert.deepEqual(pageErrors, []);
         } finally {
             if (pageErrors.length) t.diagnostic(`Uncaught page errors: ${pageErrors.join('; ')}`);
+            await context.close();
+        }
+    });
+}
+
+const startupHighScoreCases = [
+    { name: 'a valid saved high score', saved: '42', shown: 42 },
+    { name: 'a non-numeric high score', saved: 'abc', shown: 0 },
+    { name: 'a NaN high score', saved: 'NaN', shown: 0 },
+    { name: 'a JSON object high score', saved: '{"score":9}', shown: 0 },
+    { name: 'a negative high score', saved: '-5', shown: 0 },
+];
+
+for (const { name, saved, shown } of startupHighScoreCases) {
+    test(`Startup recovers from ${name}`, async () => {
+        const context = await browser.newContext();
+        try {
+            await context.route('**/*', route =>
+                route.request().url() === url ? route.continue() : route.abort());
+            await context.addInitScript(value => localStorage.setItem('templeTossHighScore', value), saved);
+
+            const page = await context.newPage();
+            const pageErrors = [];
+            page.on('pageerror', error => pageErrors.push(error.message));
+            await page.goto(url, { waitUntil: 'domcontentloaded' });
+            await page.locator('#loadingScreen').waitFor({ state: 'hidden', timeout: 6000 });
+            await page.getByRole('button', { name: 'START GAME' }).click();
+            await page.locator('#jumpButton').waitFor({ timeout: 2000 });
+
+            await page.evaluate(() => endGame());
+            assert.equal(await page.locator('#highScore').textContent(), `High score: ${shown}`);
+
+            await page.getByRole('button', { name: 'Play Again' }).click();
+            await page.evaluate(() => { score = 7; endGame(); });
+            const best = Math.max(shown, 7);
+            assert.equal(await page.locator('#highScore').textContent(), `High score: ${best}`);
+            assert.equal(await page.evaluate(() => localStorage.getItem('templeTossHighScore')),
+                best > shown ? '7' : saved);
+            assert.deepEqual(pageErrors, []);
+        } finally {
             await context.close();
         }
     });

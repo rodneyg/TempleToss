@@ -834,7 +834,10 @@
 
         const savedLeaderboard = readStoredJSON('leaderboard');
         let leaderboard = Array.isArray(savedLeaderboard)
-            ? savedLeaderboard.filter(entry => typeof entry?.name === 'string' && Number.isFinite(entry.score))
+            ? savedLeaderboard
+                .filter(entry => typeof entry?.name === 'string' && Number.isFinite(entry.score))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5)
             : [];
         let playerName = readStorage('playerName', 'sessionStorage');
         const held = { jump: new Set(), left: new Set(), right: new Set() };
@@ -1590,8 +1593,8 @@
                     clearInterval(interval);
                     setTimeout(() => {
                         document.getElementById('loadingScreen').style.display = 'none';
-                        const savedHighScore = readStorage('templeTossHighScore');
-                        if (savedHighScore) highScore = parseInt(savedHighScore);
+                        const savedHighScore = Number(readStorage('templeTossHighScore'));
+                        if (Number.isSafeInteger(savedHighScore) && savedHighScore > 0) highScore = savedHighScore;
                         updateLeaderboardDisplay();
 
                         // Add stars
