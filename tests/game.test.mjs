@@ -574,6 +574,7 @@ test('Desktop supports keyboard menus, jump, air control, toss and existing mous
     const context = await browser.newContext({ viewport: { width: 1200, height: 800 } });
     try {
         const page = await context.newPage();
+        await useFixedGameFrames(page);
         await openGame(page, url);
         await page.locator('#startButton').focus();
         await page.keyboard.press('Enter');
@@ -581,22 +582,32 @@ test('Desktop supports keyboard menus, jump, air control, toss and existing mous
 
         await page.keyboard.down('ArrowLeft');
         await page.keyboard.down('Space');
-        await page.waitForFunction(({ x, y }) => {
-            const { left, top } = document.getElementById('player').style;
-            return parseFloat(left) < x - 5 && parseFloat(top) < y - 25;
-        }, start);
+        await advanceFrames(page, 8);
+        const keyboardJump = await playerPosition(page);
+        assert.ok(keyboardJump.x < start.x - 5, 'ArrowLeft steers the player left');
+        assert.ok(keyboardJump.y < start.y - 25, 'Space lifts the player off the ground');
         await page.keyboard.up('Space');
         await page.keyboard.up('ArrowLeft');
         await page.keyboard.press('t');
-        await page.locator('.projectile').first().waitFor();
-        await page.waitForFunction(y => parseFloat(document.getElementById('player').style.top) === y, start.y);
-        await page.locator('#jumpButton').click();
-        await page.waitForFunction(y => parseFloat(document.getElementById('player').style.top) < y - 10, start.y);
-        await page.locator('.projectile').first().waitFor({ state: 'hidden' });
-        await page.locator('#tossButton').click();
-        await page.locator('.projectile').first().waitFor();
+        const projectiles = page.locator('.projectile');
+        assert.equal(await projectiles.count(), 1, 'T creates a projectile');
+        await advanceFrames(page, 85);
+        assert.equal((await playerPosition(page)).y, start.y, 'The keyboard jump lands');
+        assert.equal(await projectiles.count(), 0, 'The keyboard toss has cleared');
 
-        await page.locator('#gameOver').waitFor({ timeout: 10000 });
+        await page.locator('#jumpButton').click();
+        await advanceFrames(page, 8);
+        assert.ok((await playerPosition(page)).y < start.y - 10, 'The Jump button lifts the player off the ground');
+        await page.locator('#tossButton').click();
+        assert.equal(await projectiles.count(), 1, 'The Toss button creates a new projectile');
+
+        await advanceFrames(page, 85);
+        await page.evaluate(() => {
+            generateObstacle();
+            obstacles.at(-1).x = playerX;
+        });
+        await advanceFrames(page, 1);
+        await page.locator('#gameOver').waitFor();
         await page.locator('#mainMenuButton').focus();
         await page.keyboard.press('Enter');
         await page.locator('#startButton').waitFor();
