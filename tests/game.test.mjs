@@ -341,7 +341,6 @@ test('The mobile leaderboard fits a full-length name at 320x568', async () => {
         }, name);
         await page.route('**/*', route => route.request().url() === url ? route.continue() : route.abort());
         await openGame(page, url);
-        await tap(page, '#startButton');
         const entry = page.locator('#leaderboardDisplay').getByText(`1. ${name}: 900`, { exact: true });
         const lines = await entry.evaluate(node => {
             const range = document.createRange();
@@ -354,6 +353,56 @@ test('The mobile leaderboard fits a full-length name at 320x568', async () => {
         await context.close();
     }
 });
+
+const compactTouchViewports = [
+    compactViewport,
+    { width: 375, height: 667 },
+    devices['Pixel 7'].viewport,
+];
+
+for (const { width, height } of compactTouchViewports) {
+    for (const viewport of [{ width, height }, { width: height, height: width }]) {
+        test(`The leaderboard stays off the playfield at ${viewport.width}x${viewport.height}`, async t => {
+            const context = await browser.newContext({ ...compactPhone, viewport, screen: viewport });
+            t.after(() => context.close());
+            const page = await context.newPage();
+            const entries = Array.from({ length: 5 }, (_, index) => ({
+                name: 'W'.repeat(23) + index,
+                score: 500 - index * 10,
+            }));
+            await page.addInitScript(entries => {
+                localStorage.setItem('leaderboard', JSON.stringify(entries));
+            }, entries);
+            await page.route('**/*', route => route.request().url() === url ? route.continue() : route.abort());
+            await useFixedGameFrames(page);
+            await openGame(page, url);
+
+            const leaderboard = page.locator('#leaderboardDisplay');
+            const expected = ['Leaderboard:', ...entries.map(({ name, score }, index) =>
+                `${index + 1}. ${name}: ${score}`)];
+            assert.ok(await leaderboard.isVisible());
+            assert.deepEqual(await leaderboard.locator('p').allTextContents(), expected);
+
+            await tap(page, '#startButton');
+            await page.locator('#controls').waitFor();
+            assert.ok(await leaderboard.isHidden(), 'Leaderboard text covers the active playfield');
+            assert.ok(await page.locator('#scoreDisplay').isVisible(), 'The run score must remain visible');
+
+            await page.evaluate(() => {
+                generateObstacle();
+                obstacles.at(-1).x = playerX;
+                window.stepTouchLoop();
+            });
+            const results = page.locator('#leaderboardDisplayGameOver');
+            await results.waitFor();
+            assert.deepEqual(await results.locator('p').allTextContents(), expected);
+
+            await tap(page, '#restartButton');
+            await page.locator('#controls').waitFor();
+            assert.ok(await leaderboard.isHidden(), 'Replay must keep the playfield clear');
+        });
+    }
+}
 
 test('Rotating a phone keeps the player on the ground and all four controls reachable', async () => {
     const context = await browser.newContext({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
@@ -396,7 +445,7 @@ async function prepareSafeArea(page, insets) {
     return cdp;
 }
 
-async function verifySafeLayout(page, { top, right, bottom, left }) {
+async function verifySafeLayout(page, { top, right, bottom, left }, playing) {
     const { width, height } = page.viewportSize();
     const expectedInsets = [top, right, bottom, left];
     const actualInsets = await page.evaluate(() => {
@@ -410,17 +459,22 @@ async function verifySafeLayout(page, { top, right, bottom, left }) {
     });
     assert.deepEqual(actualInsets, expectedInsets);
 
-    for (const id of ['scoreDisplay', 'leaderboardDisplay', 'musicToggle', 'sfxToggle',
-        'leftButton', 'rightButton', 'jumpButton', 'tossButton']) {
+    const visibleIds = ['scoreDisplay', 'musicToggle', 'sfxToggle', ...(playing
+        ? ['leftButton', 'rightButton', 'jumpButton', 'tossButton']
+        : ['leaderboardDisplay'])];
+    for (const id of visibleIds) {
         const box = await page.locator(`#${id}`).boundingBox();
         assert.ok(box && box.x >= left && box.y >= top &&
             box.x + box.width <= width - right && box.y + box.height <= height - bottom,
         `#${id} crosses the safe area: ${JSON.stringify(box)}`);
     }
 
-    const score = await page.locator('#scoreDisplay').boundingBox();
-    const leaderboard = await page.locator('#leaderboardDisplay').boundingBox();
-    assert.ok(score.y + score.height <= leaderboard.y, 'The score overlaps the leaderboard');
+    if (!playing) {
+        const score = await page.locator('#scoreDisplay').boundingBox();
+        const leaderboard = await page.locator('#leaderboardDisplay').boundingBox();
+        assert.ok(score.y + score.height <= leaderboard.y, 'The score overlaps the leaderboard');
+        return;
+    }
     const moveLeft = await centerOf(page, '#leftButton');
     const moveRight = await centerOf(page, '#rightButton');
     const jump = await centerOf(page, '#jumpButton');
@@ -441,8 +495,9 @@ for (const [name, insets] of [
             const page = await context.newPage();
             await prepareSafeArea(page, insets);
             await openGame(page, url);
+            await verifySafeLayout(page, insets, false);
             await tap(page, '#startButton');
-            await verifySafeLayout(page, insets);
+            await verifySafeLayout(page, insets, true);
 
             const start = await playerPosition(page);
             await tap(page, '#jumpButton');

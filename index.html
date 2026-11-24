@@ -631,6 +631,13 @@
             }
         }
 
+        @media (any-pointer: coarse) and (max-width: 480px),
+               (any-pointer: coarse) and (max-height: 430px) {
+            #gameContainer.playing #leaderboardDisplay {
+                display: none;
+            }
+        }
+
         @media (any-pointer: coarse) and (max-height: 430px) {
             #controls {
                 bottom: max(8px, env(safe-area-inset-bottom));
