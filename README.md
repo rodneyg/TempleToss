@@ -31,7 +31,7 @@ The game features a **beautiful temple-themed background**, complete with stars,
 - Music and sound effects have separate toggles. Both default to on. Your first tap, click, or keypress enables Web Audio in supported browsers. Music and the run pause while the tab is hidden.
 
 ### Visuals:
-- **Temple-themed background** with stars, clouds, and a moving ground pattern.
+- **Temple-themed background** with stars, clouds, and a ground pattern. These effects animate during play when your device allows motion. They stay still in menus, on the results screen, and when reduced motion is enabled.
 - **Player character** with a dynamic shadow effect.
 - **Distinct visual designs** for obstacles, power-ups, and targets.
 
@@ -41,19 +41,21 @@ The game features a **beautiful temple-themed background**, complete with stars,
 
 ### Leaderboard:
 - The results screen shows your run score and personal best. A **local leaderboard** tracks the **top 5 scores** with player names.
-- The game uses local storage for the personal best and leaderboard. If a score write to local storage fails, that score stays available in the current page until you reload or close it.
+- The game uses local storage for scores and audio settings and session storage for your player name. If the browser blocks storage, your current scores, settings, and name stay available until you reload or close the page.
 
 ### Mobile Compatibility:
-- During a run, phones show Jump, Toss, and left and right arrow buttons in portrait and landscape.
+- During a run, phones show Jump, Toss, and left and right arrow buttons in portrait and landscape. The game keeps the score and controls clear of screen cutouts.
 
 ## How to Play
 
 ### Start the Game:
 Select **Start Game** to begin. After a run, you can select **Play Again** or **Main Menu**. If you earn a spot on the leaderboard, the game reuses the name you entered earlier in the tab. If it asks for a name, enter up to 24 characters and select **Save Score**, **Play Again**, or **Main Menu** to save the score. A blank name is saved as **Player**.
 
+With a keyboard, focus moves to **Jump** when a run starts and to the **Game Over!** heading when it ends. Saving a score moves focus to **Play Again**. Returning to the menu moves it to **Start Game**.
+
 ### Controls:
 - **Jump**. Press Space, W, or the up arrow, or use the Jump button. Hold to jump higher.
-- **Toss**. Press T or use the Toss button. On a phone, you can tap Toss with another finger while holding a steering arrow.
+- **Toss**. Press T or use the Toss button. Press Space when Toss has keyboard focus. On a phone, you can tap Toss with another finger while holding a steering arrow.
 - **Move left or right in the air**. Hold A or D, the left or right arrow key, or an on-screen arrow on a touch device.
 - **Audio toggles**. Use the speaker button for music or the headphones button for sound effects. You can also focus either button with Tab and activate it with Enter or Space.
 
@@ -72,7 +74,7 @@ Select **Start Game** to begin. After a run, you can select **Play Again** or **
 ## Setup
 
 - **Requirements**: A modern web browser (e.g., **Chrome, Firefox, Edge**).
-- **Installation**: No game installation is required. To play from a local checkout, open `index.html` in a browser that supports storage for local files.
+- **Installation**: No game installation is required. To play from a local checkout, open `index.html` in a modern browser.
 - **Playing the Game**: Click **"START GAME"** to begin. Use the controls to navigate through the temple and score points.
 
 ## Development

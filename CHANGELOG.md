@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-23
+
+- Keep clouds, stars, and ground still in menus and on the results screen. These effects also stay still during a run when your device is set to reduce motion. [PR #28](https://github.com/rodneyg/TempleToss/pull/28)
+- Move keyboard focus to the active screen when you start, finish, replay, or return to the menu. Space on the focused Toss button tosses without jumping. [PR #27](https://github.com/rodneyg/TempleToss/pull/27)
+- Start and play even when the browser blocks storage. Scores, audio settings, and your player name stay available while the page is open. [PR #26](https://github.com/rodneyg/TempleToss/pull/26)
+
 ## 2026-11-21
 
 - Keep the game-over screen, score entry, and replay usable if local storage rejects a personal best or leaderboard write. The affected scores stay available until the page reloads or closes. [PR #24](https://github.com/rodneyg/TempleToss/pull/24)
