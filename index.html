@@ -217,15 +217,58 @@
             to { background-position-x: -200px; }
         }
 
-        #scoreDisplay {
+        #gameHud {
             position: absolute;
-            top: 20px;
-            left: 20px;
+            top: max(20px, env(safe-area-inset-top));
+            left: max(20px, env(safe-area-inset-left));
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        #scoreDisplay {
+            width: fit-content;
+            transform-origin: left center;
             font-size: 32px;
             font-family: 'Bangers', cursive;
             color: #FFC107;
             z-index: 100;
             text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        #streakHud {
+            display: none;
+            justify-items: start;
+            gap: 4px;
+            margin-top: 4px;
+            max-width: calc(100vw - max(20px, env(safe-area-inset-left)) - max(20px, env(safe-area-inset-right)) - 92px);
+            color: #FFE082;
+            font: 600 13px/1.3 system-ui, sans-serif;
+            text-shadow: 1px 1px 2px #171044;
+        }
+
+        #gameContainer.playing #streakHud {
+            display: grid;
+        }
+
+        #streakFeedback:not(:empty), .streakBadge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #22145E;
+        }
+
+        #streakFeedback:not(:empty) {
+            color: #FFF;
+            border-left: 3px solid #FFC107;
+        }
+
+        #streakPowers {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        #streakPowers:empty, #streakFeedback:empty {
+            display: none;
         }
 
         #musicToggle, #sfxToggle {
@@ -271,9 +314,7 @@
         }
 
         #leaderboardDisplay {
-            position: absolute;
-            top: 65px;
-            left: 20px;
+            margin-top: 8px;
             font-size: 18px;
             font-family: 'Bangers', cursive;
             color: #FFD700;
@@ -351,9 +392,10 @@
 
         .target {
             position: absolute;
-            width: 50px;
+            width: var(--target-width, 50px);
             height: 50px;
-            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='24' fill='%23F44336'/%3E%3Ccircle cx='25' cy='25' r='18' fill='white'/%3E%3Ccircle cx='25' cy='25' r='12' fill='%23F44336'/%3E%3Ccircle cx='25' cy='25' r='6' fill='white'/%3E%3C/svg%3E") no-repeat;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50' preserveAspectRatio='none'%3E%3Ccircle cx='25' cy='25' r='24' fill='%23F44336'/%3E%3Ccircle cx='25' cy='25' r='18' fill='white'/%3E%3Ccircle cx='25' cy='25' r='12' fill='%23F44336'/%3E%3Ccircle cx='25' cy='25' r='6' fill='white'/%3E%3C/svg%3E") no-repeat;
+            background-size: 100% 100%;
             border-radius: 50%;
             z-index: 8;
         }
@@ -534,22 +576,12 @@
 
         @media (any-pointer: coarse) {
             #gameHud {
-                position: absolute;
                 top: max(12px, env(safe-area-inset-top));
                 left: max(12px, env(safe-area-inset-left));
-                display: grid;
-                gap: 8px;
-                z-index: 100;
-                pointer-events: none;
             }
 
-            #scoreDisplay, #leaderboardDisplay {
-                position: static;
-            }
-
-            #scoreDisplay {
-                justify-self: start;
-                transform-origin: left center;
+            #streakHud {
+                max-width: calc(100vw - max(12px, env(safe-area-inset-left)) - max(12px, env(safe-area-inset-right)) - 92px);
             }
 
             #musicToggle, #sfxToggle {
@@ -673,6 +705,11 @@
         <div id="backgroundElements"></div>
         <div id="gameHud">
             <div id="scoreDisplay">Score: 0</div>
+            <div id="streakHud">
+                <div id="streakDisplay">Streak: 0 · Best: 0</div>
+                <div id="streakFeedback" role="status"></div>
+                <div id="streakPowers" aria-label="Active streak powers"></div>
+            </div>
             <div id="leaderboardDisplay"></div>
         </div>
         <button type="button" id="musicToggle" aria-label="Music" aria-pressed="true" title="Toggle Music">
@@ -758,11 +795,80 @@
         </div>
     </main>
 
+    <script id="targetStreakRules">
+        const STREAK_CONFIG = {
+            wide: { hits: 3, seconds: 8, scale: 1.6, label: 'Wide Target' },
+            multiplier: { hits: 5, seconds: 10, scale: 2, label: 'Score Multiplier' },
+            slow: { hits: 10, seconds: 8, scale: 0.65, throws: 3, label: 'Multi-Throw + Slow-Mo' }
+        };
+
+        class TargetStreak {
+            constructor(overrides = {}) {
+                this.config = Object.fromEntries(Object.entries(STREAK_CONFIG)
+                    .map(([power, defaults]) => [power, { ...defaults, ...overrides[power] }]));
+                this.reset();
+            }
+
+            reset() {
+                this.streak = 0;
+                this.bestStreak = 0;
+                this.remaining = { wide: 0, multiplier: 0, slow: 0 };
+                this.throws = 0;
+                this.feedback = '';
+                this.feedbackTime = 0;
+            }
+
+            hit() {
+                this.streak++;
+                this.bestStreak = Math.max(this.bestStreak, this.streak);
+                const milestones = Object.keys(this.config).filter(power => this.config[power].hits === this.streak);
+                for (const power of milestones) this.remaining[power] = this.config[power].seconds;
+                if (milestones.includes('slow')) this.throws = this.config.slow.throws;
+                if (milestones.length) {
+                    this.announce(milestones.map(power => this.config[power].label).join(' · '));
+                }
+                return milestones.length > 0;
+            }
+
+            miss() {
+                if (this.streak > 0) {
+                    this.streak = 0;
+                    this.announce('Streak broken');
+                }
+            }
+
+            announce(message) {
+                this.feedback = message;
+                this.feedbackTime = 1.5;
+            }
+
+            advance(seconds) {
+                for (const power of Object.keys(this.remaining)) {
+                    this.remaining[power] = Math.max(0, this.remaining[power] - seconds);
+                }
+                this.feedbackTime = Math.max(0, this.feedbackTime - seconds);
+                if (this.feedbackTime === 0) this.feedback = '';
+            }
+
+            scale(power) {
+                return this.remaining[power] > 0 ? this.config[power].scale : 1;
+            }
+
+            takeThrow() {
+                if (this.throws <= 0) return [0];
+                this.throws--;
+                return [-3, 0, 3];
+            }
+        }
+    </script>
     <script>
         // Game variables
         let gameStarted = false;
         let gameOver = false;
         let score = 0;
+        const streakRun = new TargetStreak(window.templeTossStreakConfig);
+        const targetWidth = 50;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
         let highScore = 0;
         let playerJumping = false;
         let jumpVelocity = 0;
@@ -926,6 +1032,10 @@
 
         // DOM Elements
         const scoreDisplay = document.getElementById('scoreDisplay');
+        const streakDisplay = document.getElementById('streakDisplay');
+        const streakFeedback = document.getElementById('streakFeedback');
+        const streakPowers = document.getElementById('streakPowers');
+        let displayedStreakPowers = '';
         const musicToggle = document.getElementById('musicToggle');
         const sfxToggle = document.getElementById('sfxToggle');
         const leaderBoardDisplay = document.getElementById('leaderboardDisplay');
@@ -989,23 +1099,83 @@
             }
         }
 
-        // Toss function
+        // Each spread is one toss. A stray side projectile cannot break a successful toss.
         function toss() {
-            if (isRunActive() && tossCooldown <= 0) {
+            if (!isRunActive() || tossCooldown > 0) return;
+            const velocities = streakRun.takeThrow();
+            const attempt = { remaining: velocities.length, hit: false };
+            for (const vx of velocities) {
                 const projectile = document.createElement('div');
                 projectile.className = 'projectile';
                 projectile.style.left = playerX + 'px';
                 projectile.style.top = (playerY + 30) + 'px';
                 gameContainer.appendChild(projectile);
-                projectiles.push({
-                    element: projectile,
-                    x: playerX,
-                    y: playerY + 30,
-                    vx: 0,
-                    vy: -19 // ~361px toss height
-                });
-                tossCooldown = 0.5;
-                playSfx(460, 180);
+                projectiles.push({ element: projectile, x: playerX, y: playerY + 30, vx, vy: -19, attempt });
+            }
+            tossCooldown = 0.5;
+            playSfx(460, 180);
+            updateStreakHud();
+        }
+
+        function resolveProjectile(index, hit) {
+            const [projectile] = projectiles.splice(index, 1);
+            projectile.element.remove();
+            const attempt = projectile.attempt;
+            if (attempt) {
+                attempt.hit ||= hit;
+                attempt.remaining--;
+                if (!attempt.remaining && !attempt.hit) streakRun.miss();
+            } else if (!hit) {
+                streakRun.miss();
+            }
+        }
+
+        function scoreTarget(index, fromToss = false) {
+            const [target] = targets.splice(index, 1);
+            const basePoints = target.y < 150 ? 20 : 10;
+            const points = basePoints * (superJumpActive ? 2 : 1) * streakRun.scale('multiplier');
+            score += points;
+            target.element.remove();
+            showFloatingScore(target.x, target.y, points);
+            if (fromToss && streakRun.hit()) {
+                playSfx(520, 1240);
+                if (!reducedMotion.matches) {
+                    for (let i = 0; i < 8; i++) {
+                        const angle = (i / 8) * 2 * Math.PI;
+                        spawnParticle(target.x + targetWidth / 2, target.y + 25, 3 * Math.cos(angle), 3 * Math.sin(angle));
+                    }
+                }
+            } else {
+                playSfx(680, 880);
+            }
+        }
+
+        function updateStreakHud() {
+            const counter = `Streak: ${streakRun.streak} · Best: ${streakRun.bestStreak}`;
+            if (streakDisplay.textContent !== counter) streakDisplay.textContent = counter;
+            if (streakFeedback.textContent !== streakRun.feedback) streakFeedback.textContent = streakRun.feedback;
+            const badges = [];
+            const { remaining, throws } = streakRun;
+            if (remaining.wide) badges.push(`Wide Target · ${Math.ceil(remaining.wide)}s`);
+            if (remaining.multiplier) badges.push(`${streakRun.config.multiplier.scale}× Score · ${Math.ceil(remaining.multiplier)}s`);
+            if (remaining.slow) badges.push(`Slow-Mo · ${Math.ceil(remaining.slow)}s`);
+            if (throws) badges.push(`Multi-Throw · ${throws} ${throws === 1 ? 'toss' : 'tosses'}`);
+
+            const badgeText = badges.join('|');
+            if (displayedStreakPowers !== badgeText) {
+                streakPowers.replaceChildren(...badges.map(text => {
+                    const badge = document.createElement('span');
+                    badge.className = 'streakBadge';
+                    badge.textContent = text;
+                    return badge;
+                }));
+                displayedStreakPowers = badgeText;
+            }
+
+            const wide = streakRun.scale('wide');
+            const widthStyle = wide === 1 ? '' : `${targetWidth * wide}px`;
+            if (gameContainer.style.getPropertyValue('--target-width') !== widthStyle) {
+                gameContainer.style.setProperty('--target-width', widthStyle);
             }
         }
 
@@ -1098,6 +1268,8 @@
             gameOver = false;
             showPlayControls(false);
             score = 0;
+            streakRun.reset();
+            updateStreakHud();
             playerJumping = false;
             playerY = initialY;
             playerX = fieldWidth / 2;
@@ -1231,6 +1403,8 @@
             const deltaTime = (timestamp - (lastTime ?? timestamp)) / 1000;
             lastTime = timestamp;
             tossCooldown = Math.max(0, tossCooldown - deltaTime);
+            streakRun.advance(deltaTime);
+            const scrollSpeed = gameSpeed * streakRun.scale('slow');
 
             // Measure spawn timers in active play time so hiding the tab freezes them.
             obstacleElapsed += deltaTime;
@@ -1325,17 +1499,11 @@
                 const playerTop = playerY;
                 const playerBottom = playerY + 60;
                 const targetLeft = target.x - 10;
-                const targetRight = target.x + 60;
+                const targetRight = target.x + targetWidth * streakRun.scale('wide') + 10;
                 const targetTop = target.y - 10;
                 const targetBottom = target.y + 60;
                 if (playerRight > targetLeft && playerLeft < targetRight && playerBottom > targetTop && playerTop < targetBottom) {
-                    const basePoints = target.y < 150 ? 20 : 10;
-                    const points = superJumpActive ? basePoints * 2 : basePoints;
-                    score += points;
-                    targets.splice(tIndex, 1);
-                    target.element.remove();
-                    playSfx(680, 880);
-                    showFloatingScore(target.x, target.y, points);
+                    scoreTarget(tIndex);
                 }
             }
 
@@ -1368,7 +1536,7 @@
             // Update obstacles
             for (let index = 0; index < obstacles.length; index++) {
                 const ob = obstacles[index];
-                ob.x -= gameSpeed;
+                ob.x -= scrollSpeed;
                 ob.element.style.left = ob.x + 'px';
                 if (ob.x < -50) {
                     ob.element.remove();
@@ -1392,9 +1560,10 @@
             // Update targets
             for (let index = 0; index < targets.length; index++) {
                 const target = targets[index];
-                target.x -= gameSpeed;
+                target.x -= scrollSpeed;
                 target.element.style.left = target.x + 'px';
-                if (target.x < -50) {
+                if (target.x < -targetWidth * streakRun.scale('wide')) {
+                    streakRun.miss();
                     target.element.remove();
                     targets.splice(index, 1);
                     index--;
@@ -1407,9 +1576,12 @@
                 proj.y += proj.vy;
                 proj.vy += gravity;
                 proj.element.style.top = proj.y + 'px';
-                if (proj.y > fieldHeight || proj.y < 0) {
-                    proj.element.remove();
-                    projectiles.splice(pIndex, 1);
+                if (proj.vx) {
+                    proj.x += proj.vx;
+                    proj.element.style.left = proj.x + 'px';
+                }
+                if (proj.y > fieldHeight || proj.y < 0 || proj.x < -10 || proj.x > fieldWidth + 10) {
+                    resolveProjectile(pIndex, false);
                     pIndex--;
                     continue;
                 }
@@ -1420,20 +1592,13 @@
                     const projTop = proj.y - 10;
                     const projBottom = proj.y + 10;
                     const targetLeft = target.x - 10;
-                    const targetRight = target.x + 60;
+                    const targetRight = target.x + targetWidth * streakRun.scale('wide') + 10;
                     const targetTop = target.y - 10;
                     const targetBottom = target.y + 60;
                     if (projRight > targetLeft && projLeft < targetRight && projBottom > targetTop && projTop < targetBottom) {
-                        const basePoints = target.y < 150 ? 20 : 10;
-                        const points = superJumpActive ? basePoints * 2 : basePoints;
-                        score += points;
-                        projectiles.splice(pIndex, 1);
+                        resolveProjectile(pIndex, true);
                         pIndex--;
-                        proj.element.remove();
-                        targets.splice(tIndex, 1);
-                        target.element.remove();
-                        playSfx(680, 880);
-                        showFloatingScore(target.x, target.y, points);
+                        scoreTarget(tIndex, true);
                         break;
                     }
                 }
@@ -1463,6 +1628,7 @@
             }
             scoreDisplay.textContent = `Score: ${score}`;
 
+            updateStreakHud();
             scheduleRunFrame();
         }
 
