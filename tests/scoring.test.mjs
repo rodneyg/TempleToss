@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { after, before, test } from 'node:test';
+import { runInNewContext } from 'node:vm';
 import { chromium } from 'playwright';
 import { openGame } from './touch-loop.mjs';
 
@@ -22,7 +23,7 @@ after(async () => {
     server?.close();
 });
 
-async function scoringPage(t) {
+async function scoringPage(t, overrides) {
     const page = await browser.newPage({ viewport: { width: 800, height: 500 } });
     t.after(() => page.close());
     await page.route('**/*', route => route.request().url().startsWith(url) ? route.continue() : route.abort());
@@ -60,6 +61,9 @@ async function scoringPage(t) {
             }
         };
     });
+    if (overrides) {
+        await page.addInitScript(config => { window.templeTossStreakConfig = config; }, overrides);
+    }
     await openGame(page, url);
     await page.evaluate(() => controlGameTimers());
     await page.locator('#startButton').focus();
@@ -169,4 +173,162 @@ test('Orb pickup activates Super Jump for ten seconds, then restores normal scor
 
     await tossAtTarget(page, false);
     await assertScore(page, 10, ['+10']);
+});
+
+test('Streak rules unlock at 3, 5 and 10 hits and keep the best across a miss', async () => {
+    const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+    const [, rules] = html.match(/<script id="targetStreakRules">([\s\S]*?)<\/script>/);
+    const Streak = runInNewContext(rules + '\nTargetStreak');
+    const run = new Streak();
+    for (let hit = 1; hit <= 10; hit++) {
+        assert.equal(run.hit(), [3, 5, 10].includes(hit), `hit ${hit}`);
+    }
+    assert.equal(run.scale('wide'), 1.6);
+    assert.equal(run.scale('multiplier'), 2);
+    assert.equal(run.scale('slow'), 0.65);
+    run.miss();
+    assert.equal(run.streak, 0);
+    assert.equal(run.bestStreak, 10);
+    assert.equal(run.feedback, 'Streak broken');
+
+    run.advance(8);
+    assert.equal(run.feedback, '');
+    assert.equal(run.scale('wide'), 1);
+    assert.equal(run.scale('slow'), 1);
+    assert.equal(run.scale('multiplier'), 2);
+    run.advance(2);
+    assert.equal(run.scale('multiplier'), 1);
+    for (let i = 0; i < 3; i++) assert.equal(run.takeThrow().length, 3);
+    assert.equal(run.takeThrow().length, 1);
+
+    const custom = new Streak({ wide: { hits: 1, seconds: 0.25 }, slow: { hits: 1, throws: 1 } });
+    assert.equal(custom.hit(), true);
+    assert.match(custom.feedback, /Wide Target.*Multi-Throw/);
+    assert.equal(custom.scale('wide'), 1.6);
+    assert.equal(custom.takeThrow().length, 3);
+    custom.advance(0.25);
+    assert.equal(custom.scale('wide'), 1);
+    custom.reset();
+    assert.equal(custom.streak, 0);
+    assert.equal(custom.bestStreak, 0);
+    assert.equal(custom.scale('slow'), 1);
+    assert.equal(custom.throws, 0);
+    assert.equal(custom.feedback, '');
+});
+
+test('Toss and target misses break a streak, while player pickups only score', async t => {
+    const page = await scoringPage(t);
+    const streak = page.locator('#streakDisplay');
+    await tossAtTarget(page, false);
+    assert.match(await streak.textContent(), /Streak: 1 · Best: 1/);
+    await page.evaluate(() => {
+        // Let a genuine toss expire without contacting anything.
+        tossCooldown = 0;
+        toss();
+        for (let frame = 0; frame < 70 && projectiles.length; frame++) stepGame();
+    });
+    assert.equal(await page.locator('.projectile').count(), 0);
+    assert.match(await streak.textContent(), /Streak: 0 · Best: 1/);
+    assert.equal(await page.locator('#streakFeedback').textContent(), 'Streak broken');
+
+    await tossAtTarget(page, false);
+    await page.evaluate(() => {
+        generateTarget();
+        Object.assign(targets[0], { x: playerX, y: playerY });
+        stepGame();
+    });
+    assert.match(await streak.textContent(), /Streak: 1 · Best: 1/);
+    await page.evaluate(() => {
+        generateTarget();
+        targets[0].x = -50;
+        stepGame();
+    });
+    assert.match(await streak.textContent(), /Streak: 0 · Best: 1/);
+});
+
+test('Milestone effects change hitboxes, scores and movement, then expire and reset', async t => {
+    const page = await scoringPage(t, {
+        wide: { hits: 1, seconds: 12 },
+        multiplier: { hits: 2, seconds: 8 },
+        slow: { hits: 3, seconds: 0.5, throws: 1 },
+    });
+    await collectOrb(page);
+    await tossAtTarget(page, false);
+    const sample = await page.evaluate(() => {
+        generateTarget();
+        const target = targets[0];
+        Object.assign(target, { x: playerX - 80, y: 200 });
+        const width = target.element.offsetWidth;
+        // Put the projectile beyond even the padded normal hitbox.
+        tossCooldown = 0;
+        toss();
+        Object.assign(projectiles[0], { y: 219, vy: -19 });
+        stepGame(0);
+        return { width, scored: !targets.length };
+    });
+    assert.deepEqual(sample, { width: 80, scored: true });
+    await page.evaluate(() => stepGame(500));
+    await tossAtTarget(page, false);
+    assert.equal(await page.locator('#scoreDisplay').textContent(), 'Score: 80');
+    assert.equal(await page.locator('#streakFeedback').textContent(), 'Multi-Throw + Slow-Mo');
+
+    const slowed = await page.evaluate(() => {
+        generateObstacle();
+        generateTarget();
+        targets[0].y = 200;
+        const startingX = fieldWidth;
+        stepGame(0);
+        return [startingX - obstacles[0].x, startingX - targets[0].x];
+    });
+    assert.deepEqual(slowed, [3.25, 3.25]);
+    const restored = await page.evaluate(() => {
+        const prevX = obstacles[0].x;
+        stepGame(500);
+        return prevX - obstacles[0].x;
+    });
+    assert.equal(restored, 5);
+    assert.equal(await page.getByText(/^Slow-Mo ·/).count(), 0);
+
+    // The central projectile hits. The two wings expire and must preserve the streak.
+    await page.keyboard.press('t');
+    const spread = await page.evaluate(() => {
+        const xVelocities = projectiles.map(projectile => projectile.vx);
+        Object.assign(targets[0], { x: playerX, y: 200 });
+        Object.assign(projectiles[0], { y: 1, vy: -19 });
+        Object.assign(projectiles[1], { y: 219, vy: -19 });
+        stepGame(0);
+        Object.assign(projectiles[0], { y: 1, vy: -19 });
+        stepGame(0);
+        return xVelocities;
+    });
+    assert.deepEqual(spread, [-3, 0, 3]);
+    assert.match(await page.locator('#streakDisplay').textContent(), /Streak: 4 · Best: 4/);
+    assert.equal(await page.getByText(/^Multi-Throw ·/).count(), 0);
+
+    // After the next earned streak, an all-miss spread only breaks on the last exit.
+    const spreadMiss = await page.evaluate(() => {
+        streakRun.miss();
+        for (let i = 0; i < 3; i++) streakRun.hit();
+        tossCooldown = 0;
+        toss();
+        Object.assign(projectiles[0], { y: 1, vy: -19 });
+        stepGame(0);
+        const before = streakRun.streak;
+        for (const projectile of projectiles) Object.assign(projectile, { y: 1, vy: -19 });
+        stepGame(0);
+        return [before, streakRun.streak];
+    });
+    assert.deepEqual(spreadMiss, [3, 0]);
+    await page.evaluate(() => stepGame(12000));
+    assert.equal(await page.locator('#streakPowers').textContent(), '');
+
+    await page.evaluate(() => {
+        streakRun.hit();
+        endGame();
+    });
+    await page.locator('#restartButton').click();
+    assert.match(await page.locator('#streakDisplay').textContent(), /Streak: 0 · Best: 0/);
+    assert.equal(await page.locator('#streakFeedback').textContent(), '');
+    assert.equal(await page.locator('#streakPowers').textContent(), '');
+    assert.equal(await page.locator('.particle').count(), 0);
 });
