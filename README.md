@@ -25,7 +25,7 @@ The game features a **beautiful temple-themed background**, complete with stars,
 ### Gameplay Mechanics:
 - **Jump** to avoid obstacles and collect power-ups.
 - **Toss** projectiles to hit targets and score points.
-- **Super Jump**: Activated by collecting yellow orbs, this temporary power-up allows you to jump higher and reach otherwise inaccessible targets.
+- **Super Jump**: Activated by collecting yellow orbs, this temporary power-up lets you jump higher and doubles the points you earn for hitting targets.
 
 ### Audio:
 - Music and sound effects have separate toggles. Both default to on. Your first tap, click, or keypress enables Web Audio in supported browsers. Music and the run pause while the tab is hidden.
@@ -44,7 +44,7 @@ The game features a **beautiful temple-themed background**, complete with stars,
 - The game uses local storage for scores and audio settings and session storage for your player name. If the browser blocks storage, your current scores, settings, and name stay available until you reload or close the page.
 
 ### Mobile Compatibility:
-- During a run, phones show Jump, Toss, and left and right arrow buttons in portrait and landscape. The game keeps the score and controls clear of screen cutouts.
+- During a run, phones show Jump, Toss, and left and right arrow buttons in portrait and landscape. The game keeps the score and controls clear of screen cutouts. On compact touch screens, the leaderboard appears in the menu and on the results screen when scores have been saved. During a run, the score stays visible and the leaderboard is hidden.
 
 ## How to Play
 
@@ -55,7 +55,7 @@ With a keyboard, focus moves to **Jump** when a run starts and to the **Game Ove
 
 ### Controls:
 - **Jump**. Press Space, W, or the up arrow, or use the Jump button. Hold to jump higher.
-- **Toss**. Press T or use the Toss button. Press Space when Toss has keyboard focus. On a phone, you can tap Toss with another finger while holding a steering arrow.
+- **Toss**. Press T, click Toss, or tap Toss. Press Space when Toss has keyboard focus. On a phone, you can tap Toss with another finger while holding a steering arrow.
 - **Move left or right in the air**. Hold A or D, the left or right arrow key, or an on-screen arrow on a touch device.
 - **Audio toggles**. Use the speaker button for music or the headphones button for sound effects. You can also focus either button with Tab and activate it with Enter or Space.
 
