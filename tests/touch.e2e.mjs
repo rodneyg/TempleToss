@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -72,3 +73,45 @@ for (const [phone, device] of Object.entries(phones)) {
         }
     });
 }
+
+test('Compact touch play shows a milestone without covering controls and clears it on replay', async t => {
+    const context = await browser.newContext({
+        ...phones['iPhone SE (320x568)'], reducedMotion: 'reduce',
+    });
+    t.after(() => context.close());
+    const page = await context.newPage();
+    await page.route('**/*', route => new URL(route.request().url()).origin === url ? route.continue() : route.abort());
+    await useFixedGameFrames(page);
+    await openGame(page, url);
+    await tap(page, '#startButton');
+    await page.evaluate(() => {
+        obstacleElapsed = -Infinity;
+        targetElapsed = -Infinity;
+    });
+    for (let hit = 0; hit < 3; hit++) {
+        await page.evaluate(() => {
+            generateTarget();
+            Object.assign(targets[0], { x: playerX + 20, y: playerY - 100 });
+        });
+        await tap(page, '#tossButton');
+        await advanceFrames(page, 32);
+    }
+
+    assert.equal(await page.locator('#streakDisplay').textContent(), 'Streak: 3 · Best: 3');
+    assert.equal(await page.locator('#streakFeedback').textContent(), 'Wide Target');
+    assert.match(await page.locator('#streakPowers').textContent(), /Wide Target · \ds/);
+    assert.equal(await page.locator('.particle').count(), 0, 'Reduced motion skips the milestone burst');
+
+    for (const viewport of [compactScreen, { width: 568, height: 320 }]) {
+        await page.setViewportSize(viewport);
+        const hud = await page.locator('#streakHud').boundingBox();
+        const controls = await page.locator('#controls').boundingBox();
+        const music = await page.locator('#musicToggle').boundingBox();
+        assert.ok(hud.x >= 0 && hud.x + hud.width <= music.x && hud.y + hud.height < controls.y);
+    }
+
+    await page.evaluate(() => endGame());
+    await tap(page, '#restartButton');
+    assert.equal(await page.locator('#streakDisplay').textContent(), 'Streak: 0 · Best: 0');
+    assert.equal(await page.locator('#streakPowers').textContent(), '');
+});
