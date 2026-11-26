@@ -226,6 +226,20 @@ const startupStorageCases = [
         storage: { musicOn: '"false"', sfxOn: '0' },
     },
     {
+        name: 'malformed JSON in all three startup keys',
+        storage: { leaderboard: '{', musicOn: '[', sfxOn: 'tru' },
+    },
+    {
+        name: 'wrong-shaped JSON in all three startup keys',
+        storage: { leaderboard: '"[]"', musicOn: '[]', sfxOn: '{}' },
+    },
+    {
+        name: 'a wrong-shaped leaderboard alongside valid muted audio',
+        storage: { leaderboard: '{}', musicOn: 'false', sfxOn: 'false' },
+        musicOn: false,
+        sfxOn: false,
+    },
+    {
         name: 'valid saved scores and muted audio',
         storage: { leaderboard: savedLeaderboard, musicOn: 'false', sfxOn: 'false' },
         leaderboardText: savedLeaderboardText,
