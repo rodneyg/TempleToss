@@ -74,6 +74,31 @@ for (const [phone, device] of Object.entries(phones)) {
     });
 }
 
+test('Sound buttons stay tappable over the menu and results on small screens', async t => {
+    for (const viewport of [compactScreen, { width: 375, height: 667 }, { width: 568, height: 320 }]) {
+        const context = await browser.newContext({ ...phones['iPhone SE (320x568)'], viewport, screen: viewport });
+        t.after(() => context.close());
+        await context.addInitScript(() => localStorage.setItem('leaderboard', JSON.stringify(
+            [50, 40, 30, 20, 10].map(score => ({ name: 'W'.repeat(24), score })))));
+        const page = await context.newPage();
+        await page.route('**/*', route => new URL(route.request().url()).origin === url ? route.continue() : route.abort());
+        await openGame(page, url);
+        const toggleBoth = async screen => {
+            for (const toggle of ['#musicToggle', '#sfxToggle']) {
+                const button = page.locator(toggle);
+                const before = await button.getAttribute('aria-pressed');
+                await tap(page, toggle);
+                assert.notEqual(await button.getAttribute('aria-pressed'), before,
+                    `${toggle} is covered on the ${screen} at ${viewport.width}x${viewport.height}`);
+            }
+        };
+        await toggleBoth('menu');
+        await tap(page, '#startButton');
+        await page.evaluate(() => endGame());
+        await toggleBoth('results screen');
+    }
+});
+
 test('Compact touch play shows a milestone without covering controls and clears it on replay', async t => {
     const context = await browser.newContext({
         ...phones['iPhone SE (320x568)'], reducedMotion: 'reduce',

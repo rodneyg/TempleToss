@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-26
+
+- Play at the same speed on every display. Obstacles, jumps, and tosses no longer speed up on 90, 120, or 144 Hz screens, and slow down less when a device draws fewer frames. The music and sound effects buttons now stay on top of the menu and results panels on small screens.
+
 ## 2026-11-24
 
 - Land consecutive tosses to unlock wider targets, double target points, and a spread toss with slow motion. The game shows your current and best streak during each run. [PR #39](https://github.com/rodneyg/TempleToss/pull/39)

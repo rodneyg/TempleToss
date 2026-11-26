@@ -280,7 +280,8 @@
             border: 0;
             background: transparent;
             cursor: pointer;
-            z-index: 100;
+            /* Above the menu and results panels, which fill small screens. */
+            z-index: 210;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1424,6 +1425,30 @@
             }
         }
 
+        // Speeds below are tuned per 60 Hz tick. Return how many ticks this frame covers,
+        // so the game moves at the same pace on every display. Slow frames are capped to keep
+        // collisions reliable, and a first frame or a long stall advances a single tick.
+        function frameTicks(seconds) {
+            if (seconds <= 0 || seconds > 0.25) return 1;
+            const ticks = Math.min(3, seconds * 60);
+            return Math.abs(ticks - 1) < 1e-6 ? 1 : ticks;
+        }
+
+        // Sideways air movement over a number of ticks, tuned to the 60 Hz feel.
+        function steer(direction, ticks) {
+            if (!direction) {
+                const kept = Math.pow(0.95, ticks); // Gradual slowdown when no input
+                playerX += playerVx * 0.95 * (1 - kept) / 0.05;
+                playerVx *= kept;
+                return;
+            }
+            const speed = playerVx * direction;
+            const accelTicks = Math.max(0, Math.min(ticks, (maxAirSpeed - speed) / 0.5));
+            playerX += direction * (accelTicks * speed + 0.25 * accelTicks * (accelTicks + 1)
+                + (ticks - accelTicks) * maxAirSpeed);
+            playerVx = direction * Math.min(maxAirSpeed, speed + 0.5 * ticks);
+        }
+
         // Game loop
         function gameLoop(timestamp) {
             animationFrame = null;
@@ -1431,6 +1456,7 @@
 
             const deltaTime = (timestamp - (lastTime ?? timestamp)) / 1000;
             lastTime = timestamp;
+            const ticks = frameTicks(deltaTime);
             tossCooldown = Math.max(0, tossCooldown - deltaTime);
             streakRun.advance(deltaTime);
             const scrollSpeed = gameSpeed * streakRun.scale('slow');
@@ -1473,19 +1499,14 @@
                     currentGravity *= 0.4;
                     jumpHoldTime += deltaTime;
                 }
-                const dragForce = drag * jumpVelocity;
-                const nextY = playerY - jumpVelocity;
-                jumpVelocity -= (currentGravity + dragForce) * deltaTime * 60;
+                // Rise and velocity after this many ticks of gravity and drag.
+                const terminal = currentGravity / drag;
+                const kept = Math.pow(1 - drag, ticks);
+                const nextY = playerY - ((jumpVelocity + terminal) * (1 - kept) / drag - terminal * ticks);
+                jumpVelocity = (jumpVelocity + terminal) * kept - terminal;
 
                 // Air control
-                if (leftPressed && !rightPressed) {
-                    playerVx = Math.max(playerVx - 0.5, -maxAirSpeed);
-                } else if (rightPressed && !leftPressed) {
-                    playerVx = Math.min(playerVx + 0.5, maxAirSpeed);
-                } else {
-                    playerVx *= 0.95; // Gradual slowdown when no input
-                }
-                playerX += playerVx;
+                steer((rightPressed && !leftPressed) - (leftPressed && !rightPressed), ticks);
                 playerX = Math.max(20, Math.min(fieldWidth - 20, playerX)); // Keep player within bounds
 
                 if (nextY >= initialY) {
@@ -1538,7 +1559,7 @@
 
             // Update power-up
             if (powerUp.exists) {
-                powerUp.x -= gameSpeed;
+                powerUp.x -= gameSpeed * ticks;
                 powerUp.element.style.left = powerUp.x + 'px';
                 if (powerUp.x < -20) {
                     powerUp.element.remove();
@@ -1565,7 +1586,7 @@
             // Update obstacles
             for (let index = 0; index < obstacles.length; index++) {
                 const ob = obstacles[index];
-                ob.x -= scrollSpeed;
+                ob.x -= scrollSpeed * ticks;
                 ob.element.style.left = ob.x + 'px';
                 if (ob.x < -50) {
                     ob.element.remove();
@@ -1589,7 +1610,7 @@
             // Update targets
             for (let index = 0; index < targets.length; index++) {
                 const target = targets[index];
-                target.x -= scrollSpeed;
+                target.x -= scrollSpeed * ticks;
                 target.element.style.left = target.x + 'px';
                 if (target.x < -targetWidth * streakRun.scale('wide')) {
                     streakRun.miss();
@@ -1602,11 +1623,11 @@
             // Update projectiles
             for (let pIndex = 0; pIndex < projectiles.length; pIndex++) {
                 const proj = projectiles[pIndex];
-                proj.y += proj.vy;
-                proj.vy += gravity;
+                proj.y += proj.vy * ticks + gravity * ticks * (ticks - 1) / 2;
+                proj.vy += gravity * ticks;
                 proj.element.style.top = proj.y + 'px';
                 if (proj.vx) {
-                    proj.x += proj.vx;
+                    proj.x += proj.vx * ticks;
                     proj.element.style.left = proj.x + 'px';
                 }
                 if (proj.y > fieldHeight || proj.y < 0 || proj.x < -10 || proj.x > fieldWidth + 10) {
@@ -1636,8 +1657,8 @@
             // Update particles
             for (let index = 0; index < particles.length; index++) {
                 const particle = particles[index];
-                particle.x += particle.vx - gameSpeed / 2;
-                particle.y += particle.vy;
+                particle.x += (particle.vx - gameSpeed / 2) * ticks;
+                particle.y += particle.vy * ticks;
                 particle.lifetime -= deltaTime;
                 if (particle.lifetime <= 0) {
                     particle.element.remove();
