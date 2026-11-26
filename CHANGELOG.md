@@ -4,6 +4,9 @@
 
 - Skip the Vercel Web Analytics script by default to avoid an HTTP 404 while the service is off. Analytics can be restored by uncommenting one line after the service is enabled.
 - Play at the same speed on every display. Obstacles, jumps, and tosses no longer speed up on 90, 120, or 144 Hz screens, and slow down less when a device draws fewer frames. The music and sound effects buttons now stay on top of the menu and results panels on small screens.
+- Adjust the loading bar and use smaller score and leaderboard text on screens 375 pixels wide or less. [PR #2](https://github.com/rodneyg/TempleToss/pull/2)
+- Ignore invalid saved high scores and show only the top five valid leaderboard scores in order when the game loads. [PR #33](https://github.com/rodneyg/TempleToss/pull/33)
+- Keep playing without sound if the browser cannot set up Web Audio. [PR #34](https://github.com/rodneyg/TempleToss/pull/34)
 
 ## 2026-11-24
 
