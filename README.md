@@ -28,7 +28,7 @@ The game features a **beautiful temple-themed background**, complete with stars,
 - **Super Jump**: Activated by collecting yellow orbs, this temporary power-up lets you jump higher and doubles the points you earn for hitting targets.
 
 ### Audio:
-- Music and sound effects have separate toggles. Both default to on. Your first tap, click, or keypress enables Web Audio in supported browsers. Music and the run pause while the tab is hidden.
+- Music and sound effects have separate toggles. Both default to on. Your first tap, click, or keypress enables Web Audio in supported browsers. Music and the run pause while the tab is hidden. If audio setup fails, the game plays silently.
 
 ### Visuals:
 - **Temple-themed background** with stars, clouds, and a ground pattern. These effects animate during play when your device allows motion. They stay still in menus, on the results screen, and when reduced motion is enabled.
@@ -78,7 +78,7 @@ With a keyboard, focus moves to **Jump** when a run starts and to the **Game Ove
 
 ### Target streaks
 
-Hit targets with consecutive tosses to build a streak. A missed toss or an unhit target scrolling offscreen resets your current streak. The HUD shows your best streak for the run and the powers you have active.
+Hit targets with consecutive tosses to build a streak. A missed toss or an unhit target scrolling offscreen resets your current streak. The HUD shows your current streak, your best streak for the run, and the powers you have active.
 
 - **3 hits** widen targets for 8 seconds.
 - **5 hits** double target points for 10 seconds.
@@ -119,7 +119,7 @@ As the author, I have **ambitious plans** to elevate *Temple Toss* into a world-
 
 ### Visual and Audio Polish:
 - Enhance **player animations** (e.g., running, tossing).
-- Add **particle effects** when players hit targets.
+- Improve the **particle effects** for target streak milestones.
 - Include **thematic sound effects** and voiceovers for key events.
 
 ### Social Sharing:
