@@ -23,14 +23,16 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon-32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png">
     <link rel="manifest" href="./manifest.webmanifest">
+    <!-- <script id="vercel-analytics" defer src="/_vercel/insights/script.js"></script> -->
     <script>
-        window.va = window.va || function (...args) {
-            const queue = window.vaq ||= [];
-            // Bound the backlog if the analytics script is unavailable.
-            if (queue.length < 100) queue.push(args);
-        };
+        if (document.getElementById('vercel-analytics')) {
+            window.va = window.va || function (...args) {
+                const queue = window.vaq ||= [];
+                // Bound the backlog if the analytics script is unavailable.
+                if (queue.length < 100) queue.push(args);
+            };
+        }
     </script>
-    <script defer src="/_vercel/insights/script.js"></script>
     <style>
         :root {
             --primary: #FF5722;

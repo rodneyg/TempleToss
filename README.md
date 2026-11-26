@@ -44,7 +44,9 @@ The game features a **beautiful temple-themed background**, complete with stars,
 - The game uses local storage for scores and audio settings and session storage for your player name. If the browser blocks storage, your current scores, settings, and name stay available until you reload or close the page.
 
 ### Analytics:
-- The game uses Vercel Web Analytics to count anonymous run starts (`game_start`) and finishes (`game_over`). Each event includes only the input mode, `touch` or `keyboard`. Mouse starts count as `keyboard`. If the analytics script is blocked or unavailable, the game plays the same.
+- Vercel Web Analytics is off by default. The game skips the script request and event queue.
+- After Web Analytics is enabled for the Vercel project and the script endpoint is available, uncomment the single script tag with `id="vercel-analytics"` in `index.html`.
+- When enabled, the game counts anonymous run starts (`game_start`) and finishes (`game_over`). The only event property is the input mode, `touch` or `keyboard`. Mouse starts count as `keyboard`. The game still plays if the analytics script is blocked.
 
 ### Mobile Compatibility:
 - During a run, phones show Jump, Toss, and left and right arrow buttons in portrait and landscape. The game keeps the score and controls clear of screen cutouts. On compact touch screens, the leaderboard appears in the menu and on the results screen when scores have been saved. During a run, the score stays visible and the leaderboard is hidden.

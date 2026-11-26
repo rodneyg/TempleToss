@@ -11,10 +11,7 @@ let url;
 
 before(async () => {
     const html = await readFile(new URL('../index.html', import.meta.url));
-    server = createServer((req, res) => {
-        if (req.url === '/_vercel/insights/script.js') {
-            return res.writeHead(200, { 'Content-Type': 'application/javascript' }).end();
-        }
+    server = createServer((_req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html' }).end(html);
     });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -67,7 +64,7 @@ test('Decorative motion runs only during play and respects reduced motion', asyn
     }
 });
 
-test('Analytics queues only anonymous run events when the script is blocked', async t => {
+test('Opted-in analytics queues only anonymous run events when the script is blocked', async t => {
     const page = await browser.newPage({ viewport: phoneViewports[0], hasTouch: true, isMobile: true });
     t.after(() => page.close());
     const errors = [];
@@ -79,6 +76,15 @@ test('Analytics queues only anonymous run events when the script is blocked', as
             && message.location().url === new URL('/_vercel/insights/script.js', url).href) return;
         errors.push(message.text());
     });
+
+    const scriptTag = '<script id="vercel-analytics" defer src="/_vercel/insights/script.js"></script>';
+    const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+    const optIn = `<!-- ${scriptTag} -->`;
+    assert.ok(html.includes(optIn), 'Expected the documented analytics opt-in');
+    await page.route(url, route => route.fulfill({
+        contentType: 'text/html',
+        body: html.replace(optIn, scriptTag),
+    }));
 
     let blockedRequests = 0;
     await page.route('**/_vercel/insights/script.js', route => {
