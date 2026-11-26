@@ -1227,6 +1227,139 @@ test('Gameplay keys are ignored before the run and after game over', async () =>
     });
 });
 
+for (const [control, action] of [['#jumpButton', 'jump'], ['#leftButton', 'left']]) {
+    test(`${action} hold releases on a cancelled touch`, async () => {
+        await withControlPage(async (page, context) => {
+            const cdp = await context.newCDPSession(page);
+            await tap(page, '#startButton');
+            const button = page.locator(control);
+            await button.evaluate((element, action) => {
+                // Runs after the game's own listener, so it sees the released state.
+                element.addEventListener('pointercancel', event => {
+                    element.dataset.release = JSON.stringify({
+                        trusted: event.isTrusted,
+                        held: held[action].has(event.pointerId),
+                    });
+                }, { once: true });
+            }, action);
+
+            const point = { ...await centerOf(page, control), id: 1 };
+            await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+            assert.equal((await heldControls(page))[action].length, 1);
+            await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+
+            assert.deepEqual(JSON.parse(await button.getAttribute('data-release')), {
+                trusted: true,
+                held: false,
+            });
+            assert.deepEqual(await heldControls(page), noControlsHeld);
+        }, { hasTouch: true });
+    });
+}
+
+test('Hold controls ignore secondary and middle mouse buttons', async () => {
+    await withControlPage(async page => {
+        const start = await centerOf(page, '#startButton');
+        await page.mouse.click(start.x, start.y);
+        for (const control of ['#leftButton', '#rightButton', '#jumpButton']) {
+            const { x, y } = await centerOf(page, control);
+            await page.mouse.move(x, y);
+            for (const button of ['right', 'middle']) {
+                await page.mouse.down({ button });
+                assert.deepEqual(await heldControls(page), noControlsHeld, `${control} ${button}`);
+                await page.mouse.up({ button });
+            }
+        }
+        assert.equal(await page.evaluate(() => playerJumping), false);
+
+        const { x, y } = await centerOf(page, '#rightButton');
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        assert.equal((await heldControls(page)).right.length, 1, 'Primary button still holds');
+        await page.mouse.up();
+        assert.deepEqual(await heldControls(page), noControlsHeld);
+    }, { hasTouch: true });
+});
+
+test('Keyboard and pointer input are ignored while the page is hidden', async () => {
+    await withControlPage(async page => {
+        const setHidden = hidden => page.evaluate(hidden => {
+            Object.defineProperty(document, 'hidden', { configurable: true, value: hidden });
+            document.dispatchEvent(new Event('visibilitychange'));
+            if (!hidden) delete document.hidden;
+        }, hidden);
+        const start = await centerOf(page, '#startButton');
+        await page.mouse.click(start.x, start.y);
+        const before = await playerPosition(page);
+
+        await setHidden(true);
+        await page.keyboard.down('ArrowLeft');
+        await page.keyboard.down('Space');
+        await page.keyboard.press('t');
+        const right = await centerOf(page, '#rightButton');
+        await page.mouse.move(right.x, right.y);
+        await page.mouse.down();
+        assert.deepEqual(await heldControls(page), noControlsHeld);
+        await page.mouse.up();
+        for (const control of ['#tossButton', '#jumpButton']) {
+            const { x, y } = await centerOf(page, control);
+            await page.mouse.click(x, y);
+        }
+        await page.clock.runFor(64);
+        assert.deepEqual(await heldControls(page), noControlsHeld);
+        assert.equal(await page.evaluate(() => playerJumping), false);
+        assert.equal(await page.locator('.projectile').count(), 0);
+        assert.deepEqual(await playerPosition(page), before);
+        await page.keyboard.up('Space');
+        await page.keyboard.up('ArrowLeft');
+
+        await setHidden(false);
+        await page.keyboard.down('ArrowLeft');
+        assert.deepEqual((await heldControls(page)).left, ['ArrowLeft'], 'Input works again once visible');
+        await page.keyboard.up('ArrowLeft');
+    }, { hasTouch: true });
+});
+
+test('Modified Space on the focused Jump button is ignored but a modified Toss click still tosses', async () => {
+    await withControlPage(async page => {
+        const start = await centerOf(page, '#startButton');
+        await page.mouse.click(start.x, start.y);
+        assert.equal(await page.evaluate(() => document.activeElement.id), 'jumpButton');
+
+        // Chromium activates a focused button with modified Space, not modified Enter.
+        for (const shortcut of ['Control+Space', 'Alt+Space', 'Meta+Space']) {
+            await page.keyboard.press(shortcut);
+            assert.equal(await page.evaluate(() => playerJumping), false, shortcut);
+        }
+        await page.keyboard.press('Enter');
+        assert.equal(await page.evaluate(() => playerJumping), true, 'Plain Enter jumps');
+
+        // A real mouse click reports a click count, so modifiers do not cancel it.
+        // Alt avoids the macOS Control+click context menu.
+        const toss = await centerOf(page, '#tossButton');
+        await page.keyboard.down('Alt');
+        await page.mouse.click(toss.x, toss.y);
+        await page.keyboard.up('Alt');
+        assert.equal(await page.locator('.projectile').count(), 1);
+    });
+});
+
+test('Toss does not fire when the touch slides off the button before release', async () => {
+    await withControlPage(async (page, context) => {
+        const cdp = await context.newCDPSession(page);
+        await tap(page, '#startButton');
+        const toss = { ...await centerOf(page, '#tossButton'), id: 1 };
+        const away = { ...await centerOf(page, '#scoreDisplay'), id: 1 };
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [toss] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [away] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        assert.equal(await page.locator('.projectile').count(), 0);
+
+        await tap(page, '#tossButton');
+        assert.equal(await page.locator('.projectile').count(), 1, 'A normal tap still tosses');
+    }, { hasTouch: true });
+});
+
 for (const deniedStorage of [['localStorage'], ['sessionStorage'], ['localStorage', 'sessionStorage']]) {
     test(`The game stays playable when access to ${deniedStorage.join(' and ')} is denied`, async t => {
         const page = await browser.newPage();
