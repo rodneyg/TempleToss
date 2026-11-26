@@ -995,13 +995,24 @@
             }
         }
 
+        let audioUnavailable = false;
+
         function unlockAudio(event) {
             const Audio = window.AudioContext || window.webkitAudioContext;
-            if (!event.isTrusted || document.hidden || !Audio) return;
+            if (!event.isTrusted || document.hidden || !Audio || audioUnavailable) return;
             if (!audioContext) {
-                audioContext = new Audio();
-                musicGain = audioContext.createGain();
-                musicGain.connect(audioContext.destination);
+                try {
+                    const context = new Audio();
+                    musicGain = context.createGain();
+                    musicGain.connect(context.destination);
+                    audioContext = context;
+                } catch (err) {
+                    // Play silently rather than fail on every tap.
+                    audioUnavailable = true;
+                    musicGain = undefined;
+                    console.error('Audio setup error:', err);
+                    return;
+                }
                 updateMusic();
             }
             resumeAudio();
