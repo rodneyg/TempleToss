@@ -1045,6 +1045,64 @@ test('Leaderboard keeps the five highest scores and restores their order after r
     await assertLeaderboard(page, ranked);
 });
 
+test('Leaderboard skips the name form when a score does not beat a full board', async t => {
+    const entries = [
+        { name: 'Avery', score: 90 },
+        { name: 'Dana', score: 70 },
+        { name: 'Ellis', score: 50 },
+        { name: 'Kai', score: 30 },
+        { name: 'Sky', score: 10 },
+    ];
+    const page = await openLeaderboardGame(t, entries);
+
+    // A tie with the lowest saved score does not qualify.
+    await finishRun(page, 10);
+    assert.ok(await page.locator('#scoreForm').isHidden(), 'A tying score must not ask for a name');
+    await assertLeaderboard(page, entries);
+
+    await finishRun(page, 0, '#restartButton');
+    assert.ok(await page.locator('#scoreForm').isHidden(), 'A lower score must not ask for a name');
+    await assertLeaderboard(page, entries);
+});
+
+test('Leaderboard keeps earlier entries ahead of a new tied score', async t => {
+    const entries = [{ name: 'Ada', score: 30 }, { name: 'Bo', score: 20 }];
+    const page = await openLeaderboardGame(t, entries);
+    await finishRun(page, 20);
+    await page.getByRole('textbox', { name: 'Player name' }).fill('Cy');
+    await page.locator('#scoreForm button').click();
+    await assertLeaderboard(page, [...entries, { name: 'Cy', score: 20 }]);
+});
+
+test('Leaderboard reuses the session name after reload but not in a new tab', async t => {
+    const page = await openLeaderboardGame(t);
+    await finishRun(page, 20);
+    await page.getByRole('textbox', { name: 'Player name' }).fill('Ada');
+    await page.locator('#scoreForm button').click();
+    await assertLeaderboard(page, [{ name: 'Ada', score: 20 }]);
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#loadingScreen').waitFor({ state: 'hidden' });
+    await finishRun(page, 30);
+    assert.ok(await page.locator('#scoreForm').isHidden(), 'The session name must be reused after reload');
+    await assertLeaderboard(page, [{ name: 'Ada', score: 30 }, { name: 'Ada', score: 20 }]);
+
+    // A new tab shares localStorage but starts a new sessionStorage.
+    const tab = await page.context().newPage();
+    await openGame(tab, url);
+    await assertLeaderboard(tab, [{ name: 'Ada', score: 30 }, { name: 'Ada', score: 20 }]);
+    await finishRun(tab, 40);
+    await tab.locator('#scoreForm').waitFor();
+    assert.equal(await tab.getByRole('textbox', { name: 'Player name' }).inputValue(), '');
+    await tab.getByRole('textbox', { name: 'Player name' }).fill('Bo');
+    await tab.locator('#scoreForm button').click();
+    await assertLeaderboard(tab, [
+        { name: 'Bo', score: 40 },
+        { name: 'Ada', score: 30 },
+        { name: 'Ada', score: 20 },
+    ]);
+});
+
 async function withControlPage(run, { hasTouch = false } = {}) {
     const context = await browser.newContext({
         viewport: phoneViewports[0],
