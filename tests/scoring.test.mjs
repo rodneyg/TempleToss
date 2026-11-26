@@ -175,6 +175,57 @@ test('Orb pickup activates Super Jump for ten seconds, then restores normal scor
     await assertScore(page, 10, ['+10']);
 });
 
+test('The game moves at the same pace on 30, 60, 120 and 144 Hz screens', async t => {
+    const page = await scoringPage(t);
+    const runs = await page.evaluate(() => [60, 30, 120, 144].map(hz => {
+        resetGame();
+        gameStarted = true;
+        showPlayControls(true);
+        scheduleRunFrame();
+        const step = () => stepGame(1000 / hz);
+        stepGame(0);
+        obstacleElapsed = targetElapsed = powerUpSpawnTimer = -Infinity;
+
+        // One second of scrolling.
+        generateObstacle();
+        obstacles[0].x = 5000;
+        for (let frame = 0; frame < hz; frame++) step();
+        const scrolled = 5000 - obstacles[0].x;
+        obstacles.pop().element.remove();
+
+        // A tapped jump while steering right.
+        const start = { x: playerX, y: playerY };
+        held.right.add('test');
+        jump();
+        let peak = 0;
+        let frames = 0;
+        while (playerJumping && frames < hz * 5) {
+            step();
+            frames++;
+            peak = Math.max(peak, start.y - playerY);
+            if (frames === Math.round(hz / 5)) held.right.clear();
+        }
+        const air = frames / hz;
+
+        // A toss after a fifth of a second.
+        toss();
+        for (let frame = 0; frame < Math.round(hz / 5); frame++) step();
+        return { hz, scrolled, peak, air, drift: playerX - start.x, tossed: start.y + 30 - projectiles[0].y };
+    }));
+    const [base, ...others] = runs;
+    assert.ok(Math.abs(base.scrolled - 300) < 0.01, JSON.stringify(base));
+    for (const run of others) {
+        const detail = JSON.stringify({ base, run });
+        assert.ok(Math.abs(run.scrolled - base.scrolled) < 0.01, detail);
+        // Frames sample the same arc at different moments, so allow a few pixels.
+        assert.ok(Math.abs(run.peak - base.peak) < 4, detail);
+        assert.ok(Math.abs(run.air - base.air) < 0.07, detail);
+        // 144 Hz cannot release the arrow at exactly a fifth of a second.
+        assert.ok(Math.abs(run.drift - base.drift) < 8, detail);
+        assert.ok(Math.abs(run.tossed - base.tossed) < 8, detail);
+    }
+});
+
 test('Streak rules unlock at 3, 5 and 10 hits and keep the best across a miss', async () => {
     const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
     const [, rules] = html.match(/<script id="targetStreakRules">([\s\S]*?)<\/script>/);
