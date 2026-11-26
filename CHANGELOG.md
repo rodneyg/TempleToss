@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-24
+
+- Land consecutive tosses to unlock wider targets, double target points, and a spread toss with slow motion. The game shows your current and best streak during each run. [PR #39](https://github.com/rodneyg/TempleToss/pull/39)
+
 ## 2026-11-23
 
 - Hide the leaderboard during runs on compact touch screens to keep the playfield clear. You can still see it in the menu and on the results screen. [PR #29](https://github.com/rodneyg/TempleToss/pull/29)

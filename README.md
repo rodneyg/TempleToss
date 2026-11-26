@@ -69,7 +69,15 @@ With a keyboard, focus moves to **Jump** when a run starts and to the **Game Ove
 - Points are awarded for:
   - Clearing an obstacle once it scrolls offscreen (**+5**)
   - Hitting targets (**+10** or **+20** for high targets)
-- In **super jump mode**, points for hitting targets are **doubled**.
+- In **super jump mode**, points for hitting targets are **doubled**. This stacks with the streak score multiplier.
+
+### Target streaks
+
+Hit targets with consecutive tosses to build a streak. A missed toss or an unhit target scrolling offscreen resets your current streak. The HUD shows your best streak for the run and the powers you have active.
+
+- **3 hits** widen targets for 8 seconds.
+- **5 hits** double target points for 10 seconds.
+- **10 hits** slow targets and obstacles for 8 seconds and grant three spread tosses. A spread toss counts as a miss only if all three projectiles miss.
 
 ## Setup
 
@@ -85,7 +93,7 @@ With a keyboard, focus moves to **Jump** when a run starts and to the **Game Ove
 
 ### Browser tests:
 
-Run `npm ci` and `npx playwright install chromium`, then run `npm run lint` and `npm test`. The tests cover touch play in both orientations and desktop keyboard and mouse play. Run `npm run test:e2e` for the iPhone SE and Pixel 7 touch checks.
+Run `npm ci` and `npx playwright install chromium`, then run `npm run lint` and `npm test`. The tests cover touch play in both orientations, desktop keyboard and mouse play, scoring, and streak powers. Run `npm run test:e2e` for the iPhone SE and Pixel 7 touch controls and the compact-screen streak HUD and replay checks.
 
 ### Current State:
 - The game includes **core mechanics** such as jumping, tossing, obstacle avoidance, power-up collection, and target hitting.
