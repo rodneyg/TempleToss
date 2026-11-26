@@ -18,10 +18,7 @@ let url;
 
 before(async () => {
     const html = await readFile(new URL('../index.html', import.meta.url));
-    server = createServer((request, response) => {
-        if (request.url === '/_vercel/insights/script.js') {
-            return response.writeHead(200, { 'Content-Type': 'application/javascript' }).end();
-        }
+    server = createServer((_request, response) => {
         response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(html);
     });
     server.listen(0, '127.0.0.1');

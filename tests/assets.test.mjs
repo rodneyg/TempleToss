@@ -16,8 +16,8 @@ let html;
 before(async () => {
     html = await readFile(new URL('../index.html', import.meta.url));
     server = createServer((req, res) => {
-        // Serve only the page. Icons, the manifest, and the analytics script
-        // are missing, the same as a broken deploy or a stale CDN edge.
+        // Serve only the page. Icons and the manifest are missing, as they
+        // would be in a broken deploy or on a stale CDN edge.
         if (req.url === '/') return res.writeHead(200, { 'Content-Type': 'text/html' }).end(html);
         res.writeHead(404, { 'Content-Type': 'text/plain' }).end('missing');
     });
@@ -43,16 +43,8 @@ async function playablePage({ initScript, routes = [], touch = true } = {}) {
     return { context, page, pageErrors };
 }
 
-async function startMoveAndToss(page, { touch = true, waitForDomReady = true } = {}) {
-    if (waitForDomReady) {
-        await openGame(page, url);
-    } else {
-        // A deferred script that never arrives holds DOMContentLoaded, so wait
-        // for the game's own menu instead.
-        await page.goto(url, { waitUntil: 'commit' });
-        await page.locator('#loadingScreen').waitFor({ state: 'hidden' });
-        await page.getByRole('button', { name: 'START GAME' }).waitFor();
-    }
+async function startMoveAndToss(page, { touch = true } = {}) {
+    await openGame(page, url);
     if (touch) await tap(page, '#startButton');
     else await page.locator('#startButton').click();
     await page.locator('#controls').waitFor({ state: 'visible', timeout: 5000 });
@@ -129,7 +121,7 @@ test('The game plays when the browser never lets audio resume', async () => {
     }
 });
 
-test('The game plays while analytics and fonts hang and icons are missing', async () => {
+test('The default game never requests analytics, even while fonts hang and icons are missing', async () => {
     const { promise: released, resolve: release } = Promise.withResolvers();
     const hung = new Set();
     const hang = async route => {
@@ -143,21 +135,25 @@ test('The game plays while analytics and fonts hang and icons are missing', asyn
         routes: [
             [/^https:/, route => route.abort('internetdisconnected')],
             ['https://fonts.googleapis.com/**', hang],
-            ['**/_vercel/insights/script.js', hang],
         ],
     });
+    const analyticsRequests = [];
+    page.on('request', request => {
+        if (new URL(request.url()).pathname === '/_vercel/insights/script.js') {
+            analyticsRequests.push(request.url());
+        }
+    });
     try {
-        await startMoveAndToss(page, { touch: false, waitForDomReady: false });
-        await page.keyboard.press('ArrowUp');
+        await startMoveAndToss(page, { touch: false });
+        await page.evaluate(() => endGame());
+        await page.getByRole('heading', { name: 'Game Over!' }).waitFor();
 
-        assert.ok(hung.has('/_vercel/insights/script.js'), 'The analytics script should still be pending');
+        assert.deepEqual(analyticsRequests, [], 'The default game must not request the analytics script');
         assert.ok(hung.has('/css2'), 'The font stylesheet should still be pending');
         for (const asset of ['assets/favicon-32.png', 'assets/apple-touch-icon.png', 'manifest.webmanifest']) {
             assert.equal((await fetch(new URL(asset, url))).status, 404, `${asset} should be missing`);
         }
-        assert.equal(await page.evaluate(() => typeof window.va), 'function');
-        assert.deepEqual(await page.evaluate(() => window.vaq.at(-1)),
-            ['event', { name: 'game_start', data: { input_mode: 'keyboard' } }]);
+        assert.equal(await page.evaluate(() => window.vaq), undefined, 'Disabled analytics must not queue events');
         assert.deepEqual(pageErrors, [], 'Missing assets must not cause uncaught errors');
     } finally {
         release();
