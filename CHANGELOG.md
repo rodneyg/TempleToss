@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-27
+
+- Avoid false game-over collisions when you visibly clear an obstacle. [PR #45](https://github.com/rodneyg/TempleToss/pull/45)
+
 ## 2026-11-26
 
 - Skip the Vercel Web Analytics script by default to avoid an HTTP 404 while the service is off. Analytics can be restored by uncommenting one line after the service is enabled.
