@@ -1231,12 +1231,19 @@
             return min + Math.random() * (max - min);
         }
 
+        // Short screens put the usual target band at the runner's height. Keep targets above
+        // the standing runner so they still take a toss or a jump to hit.
+        function lowestTargetY() {
+            return skyBottom(playerHeight + 60);
+        }
+
         function generateTarget() {
             const target = document.createElement('div');
             target.className = 'target';
-            const targetY = Math.random() < 0.2
+            const sampledY = Math.random() < 0.2
                 ? randomSkyY(fieldHeight - 400, fieldHeight - 300, 50)
                 : randomSkyY(150, 250, 50);
+            const targetY = Math.min(sampledY, lowestTargetY());
             target.style.top = targetY + 'px';
             target.style.left = fieldWidth + 'px';
             gameContainer.appendChild(target);
@@ -1747,23 +1754,37 @@
             }
         });
 
+        // Slide the whole field with the runner, so a rotation keeps the same gaps.
+        function recenterField(previousWidth) {
+            if (fieldWidth === previousWidth || !previousWidth) return;
+            const nextX = Math.max(20, Math.min(fieldWidth - 20, playerX * fieldWidth / previousWidth));
+            const shift = nextX - playerX;
+            playerX = nextX;
+            const moving = [...obstacles, ...targets, ...projectiles, ...particles,
+                ...(powerUp.exists ? [powerUp] : [])];
+            for (const item of moving) {
+                item.x += shift;
+                item.element.style.left = item.x + 'px';
+            }
+        }
+
         new ResizeObserver(() => {
+            const previousWidth = fieldWidth;
             fieldWidth = gameContainer.clientWidth;
             fieldHeight = gameContainer.clientHeight;
             const nextInitialY = fieldHeight - groundHeight - playerHeight;
             playerY = Math.max(0, playerY + nextInitialY - initialY);
             initialY = nextInitialY;
             for (const target of targets) {
-                target.y = Math.min(target.y, skyBottom(50));
+                target.y = Math.min(target.y, lowestTargetY());
                 target.element.style.top = target.y + 'px';
             }
             if (powerUp.exists) {
                 powerUp.y = Math.min(powerUp.y, skyBottom(20));
                 powerUp.element.style.top = powerUp.y + 'px';
             }
-            playerX = gameStarted && !gameOver
-                ? Math.max(20, Math.min(fieldWidth - 20, playerX))
-                : fieldWidth / 2;
+            if (gameStarted && !gameOver) recenterField(previousWidth);
+            else playerX = fieldWidth / 2;
             player.style.top = playerY + 'px';
             player.style.left = playerX + 'px';
             playerShadow.style.left = playerX + 'px';

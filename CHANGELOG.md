@@ -2,6 +2,7 @@
 
 ## 2026-11-27
 
+- Keep targets above the standing runner on short phone screens, so you no longer score without playing. Rotating your phone during a run now keeps the runner in the middle and keeps the same gap to the next obstacle.
 - Avoid false game-over collisions when you visibly clear an obstacle. [PR #45](https://github.com/rodneyg/TempleToss/pull/45)
 
 ## 2026-11-26
