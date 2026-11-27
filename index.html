@@ -1614,6 +1614,7 @@
                 const obstacleTop = fieldHeight - groundHeight - 50;
                 if (playerLeft < obstacleRight && playerRight > obstacleLeft && playerBottom > obstacleTop) {
                     endGame();
+                    return;
                 }
             }
 
