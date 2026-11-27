@@ -144,6 +144,24 @@ for (const [highTarget, basePoints] of [[false, 10], [true, 20]]) {
     });
 }
 
+test('A target hit on the obstacle game-over frame does not change the final score', async t => {
+    const page = await scoringPage(t);
+    await page.evaluate(() => {
+        generateObstacle();
+        obstacles[0].x = playerX;
+        generateTarget();
+        targets[0].x = playerX;
+        targets[0].y = 100;
+        toss();
+        Object.assign(projectiles[0], { x: playerX, y: targets[0].y + 20, vx: 0, vy: 0 });
+        stepGame();
+    });
+
+    assert.equal(await page.locator('#gameOver').isVisible(), true);
+    assert.equal(await page.locator('#finalScore').textContent(), 'Your score: 0');
+    await assertScore(page, 0, []);
+});
+
 test('Orb pickup activates Super Jump for ten seconds, then restores normal scoring and jump strength', async t => {
     const page = await scoringPage(t);
     await collectOrb(page);
