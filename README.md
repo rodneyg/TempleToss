@@ -106,7 +106,7 @@ Hit targets with consecutive tosses to build a streak. A missed toss or an unhit
 
 ### Browser tests:
 
-Run `npm ci` and `npx playwright install chromium`, then run `npm run lint` and `npm test`. The tests cover touch play in both orientations, desktop keyboard and mouse play, scoring, and streak powers. Run `npm run test:e2e` for the iPhone SE and Pixel 7 touch controls and the compact-screen streak HUD and replay checks.
+Run `npm ci` and `npx playwright install chromium`, then run `npm run lint` and `npm test`. The tests cover touch play in both orientations, desktop keyboard and mouse play, scoring, and streak powers. Run `npm run test:e2e` for the iPhone SE and Pixel 7 touch controls, the compact-screen streak HUD and replay checks, obstacle hitboxes, and short-screen target and rotation checks. Set `BROWSER=webkit` to run `tests/se-gaps.e2e.mjs` in the Safari engine.
 
 ### Current State:
 - The game includes **core mechanics** such as jumping, tossing, obstacle avoidance, power-up collection, and target hitting.

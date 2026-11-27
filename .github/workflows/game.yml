@@ -31,5 +31,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:e2e
+      - name: Check iPhone SE sizes in the Safari engine
+        run: node --test --test-concurrency=1 tests/se-gaps.e2e.mjs
+        env:
+          BROWSER: webkit
