@@ -1,5 +1,13 @@
 # Temple Toss
 
+![Temple Toss main menu](docs/screenshots/menu.png)
+
+*Start a run from the temple menu.*
+
+![Temple Toss gameplay in progress](docs/screenshots/gameplay.png)
+
+*An active run with the score and touch controls visible.*
+
 Temple Toss is an exciting HTML5 side-scrolling adventure game where you control a character running through an ancient temple. Your goal is to avoid obstacles, collect power-ups, and hit targets to score as many points as possible. The game is designed to be played directly in a web browser with no additional software required.
 
 ## Table of Contents
