@@ -1601,8 +1601,9 @@
                 const playerLeft = playerX - 20;
                 const playerRight = playerX + 20;
                 const playerBottom = playerY + 60;
-                const obstacleLeft = ob.x - 30;
-                const obstacleRight = ob.x + 80;
+                const obstacleInset = 2;
+                const obstacleLeft = ob.x + obstacleInset;
+                const obstacleRight = ob.x + 50 - obstacleInset;
                 const obstacleTop = fieldHeight - groundHeight - 50;
                 if (playerLeft < obstacleRight && playerRight > obstacleLeft && playerBottom > obstacleTop) {
                     endGame();
