@@ -1011,6 +1011,53 @@ test('Denied score writes leave game over, score entry, and restart usable', asy
     })), { best: null, leaderboard: '[]' });
 });
 
+test('An older tab preserves newer best score and merges leaderboard saves', async t => {
+    const context = await browser.newContext();
+    t.after(() => context.close());
+    await context.route('**/*', route =>
+        route.request().url() === url ? route.continue() : route.abort());
+    const oldTab = await context.newPage();
+    await oldTab.goto(url, { waitUntil: 'domcontentloaded' });
+    await oldTab.locator('#loadingScreen').waitFor({ state: 'hidden' });
+
+    const newerTab = await context.newPage();
+    await newerTab.goto(url, { waitUntil: 'domcontentloaded' });
+    await newerTab.locator('#loadingScreen').waitFor({ state: 'hidden' });
+    await newerTab.evaluate(() => {
+        localStorage.setItem('templeTossHighScore', '100');
+        localStorage.setItem('leaderboard', JSON.stringify([{ name: 'Ada', score: 100 }]));
+    });
+
+    await oldTab.getByRole('button', { name: 'Start Game' }).click();
+    await oldTab.evaluate(() => { score = 10; endGame(); });
+    assert.equal(await oldTab.locator('#highScore').textContent(), 'High score: 100');
+    await oldTab.getByRole('textbox', { name: 'Player name' }).fill('Player');
+    await oldTab.locator('#scoreForm button').click();
+    assert.deepEqual(await oldTab.evaluate(() => ({
+        best: localStorage.getItem('templeTossHighScore'),
+        leaderboard: JSON.parse(localStorage.getItem('leaderboard')),
+    })), {
+        best: '100',
+        leaderboard: [{ name: 'Ada', score: 100 }, { name: 'Player', score: 10 }],
+    });
+});
+
+test('Startup seeds high score from the top leaderboard entry', async t => {
+    const context = await browser.newContext();
+    t.after(() => context.close());
+    await context.route('**/*', route =>
+        route.request().url() === url ? route.continue() : route.abort());
+    await context.addInitScript(() => {
+        localStorage.setItem('leaderboard', JSON.stringify([{ name: 'Ada', score: 90 }]));
+    });
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await page.locator('#loadingScreen').waitFor({ state: 'hidden' });
+    await page.getByRole('button', { name: 'Start Game' }).click();
+    await page.evaluate(() => endGame());
+    assert.equal(await page.locator('#highScore').textContent(), 'High score: 90');
+});
+
 test('Leaderboard uses Player for a whitespace-only name', async t => {
     const page = await openLeaderboardGame(t);
     await finishRun(page, 20);

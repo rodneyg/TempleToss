@@ -1337,9 +1337,18 @@
         }
 
         function saveScore(name) {
-            leaderboard.push({ name, score });
-            leaderboard.sort((a, b) => b.score - a.score);
-            leaderboard = leaderboard.slice(0, 5);
+            const savedLeaderboard = readStoredJSON('leaderboard');
+            const latestLeaderboard = Array.isArray(savedLeaderboard)
+                ? savedLeaderboard
+                    .filter(entry => typeof entry?.name === 'string'
+                        && Number.isSafeInteger(entry.score) && entry.score >= 0)
+                : [];
+            leaderboard = [...new Map(
+                [...latestLeaderboard, ...leaderboard, { name, score }]
+                    .map(entry => [`${entry.name}\u0000${entry.score}`, entry]),
+            ).values()]
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5);
             writeStorage('leaderboard', JSON.stringify(leaderboard));
             updateLeaderboardDisplay();
         }
@@ -1369,10 +1378,24 @@
             showPlayControls(false);
             pauseRun();
             finalScoreDisplay.textContent = 'Your score: ' + score;
+            const storedHighScore = Number(readStorage('templeTossHighScore'));
+            const storedLeaderboard = readStoredJSON('leaderboard');
+            if (Array.isArray(storedLeaderboard)) {
+                leaderboard = [...storedLeaderboard, ...leaderboard]
+                    .filter(entry => typeof entry?.name === 'string'
+                        && Number.isSafeInteger(entry.score) && entry.score >= 0)
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 5);
+            }
+            highScore = Math.max(
+                highScore,
+                Number.isSafeInteger(storedHighScore) && storedHighScore > 0 ? storedHighScore : 0,
+                Number.isSafeInteger(leaderboard[0]?.score) ? leaderboard[0].score : 0,
+            );
             if (score > highScore) {
                 highScore = score;
-                writeStorage('templeTossHighScore', String(highScore));
             }
+            writeStorage('templeTossHighScore', String(highScore));
             highScoreGameOver.textContent = 'High score: ' + highScore;
             if (leaderboard.length < 5 || score > leaderboard[leaderboard.length - 1].score) {
                 if (playerName) {
@@ -1832,7 +1855,12 @@
                     setTimeout(() => {
                         document.getElementById('loadingScreen').style.display = 'none';
                         const savedHighScore = Number(readStorage('templeTossHighScore'));
-                        if (Number.isSafeInteger(savedHighScore) && savedHighScore > 0) highScore = savedHighScore;
+                        const topLeaderboardScore = leaderboard[0]?.score;
+                        highScore = Math.max(
+                            Number.isSafeInteger(savedHighScore) && savedHighScore > 0 ? savedHighScore : 0,
+                            Number.isSafeInteger(topLeaderboardScore) && topLeaderboardScore > 0
+                                ? topLeaderboardScore : 0,
+                        );
                         updateLeaderboardDisplay();
 
                         // Add stars
