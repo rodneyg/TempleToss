@@ -1258,6 +1258,32 @@ for (const releaseEvent of ['pointerup', 'pointercancel', 'lostpointercapture'])
     });
 }
 
+for (const releaseEvent of ['pointerup', 'lostpointercapture']) {
+    for (const [control, action] of [['#jumpButton', 'jump'], ['#leftButton', 'left'], ['#rightButton', 'right']]) {
+        test(`${action} hold releases on ${releaseEvent}`, async () => {
+            await withControlPage(async page => {
+                await tap(page, '#startButton');
+                const button = page.locator(control);
+                const point = await centerOf(page, control);
+                await page.mouse.move(point.x, point.y);
+                await page.mouse.down();
+                assert.equal((await heldControls(page))[action].length, 1);
+
+                if (releaseEvent === 'lostpointercapture') {
+                    await page.mouse.move(point.x, point.y - 5);
+                    await button.evaluate((element, action) => element.releasePointerCapture([...held[action]][0]), action);
+                    await page.mouse.move(point.x, point.y - 10);
+                } else {
+                    await page.mouse.up();
+                }
+
+                assert.deepEqual(await heldControls(page), noControlsHeld);
+                if (releaseEvent === 'lostpointercapture') await page.mouse.up();
+            }, { hasTouch: true });
+        });
+    }
+}
+
 for (const releaseEvent of ['blur', 'visibilitychange']) {
     test(`Held keyboard and pointer controls clear on ${releaseEvent}`, async () => {
         await withControlPage(async page => {
